@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // users/{uid}: the owner can read it and update everything EXCEPT the entitlement fields,
+    // which are written only by the RevenueCat webhook (Admin SDK bypasses these rules).
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.keys().hasAny(['premium', 'premiumExpiresAt']);
+      allow update: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['premium', 'premiumExpiresAt']);
+
+      match /captures/{captureId} {
+        allow read, create, delete: if request.auth != null && request.auth.uid == uid;
+        allow update: if false;
+      }
+    }
+
+    // Optional remote pose library: readable by any signed-in user, writable only from the console/Admin SDK.
+    match /poses/{poseId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

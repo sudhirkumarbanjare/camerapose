@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Premium cloud backup of captured photos.
+    match /users/{uid}/captures/{file} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*')
+        && firestore.get(/databases/(default)/documents/users/$(uid)).data.premium == true;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow update: if false;
+    }
+  }
+}
