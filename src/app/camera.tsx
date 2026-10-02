@@ -22,6 +22,7 @@ import { evaluateScene, type Guidance, type Phase } from '@/engine/coach';
 import { HoldTracker } from '@/engine/hold';
 import { PoseSmoother } from '@/engine/smooth';
 import { placePose } from '@/engine/layout';
+import { mirrorPose } from '@/engine/mirror';
 import type { PoseDef, Size, Skeleton } from '@/engine/types';
 import { getPose, GROUP_SIZES, posesForMode } from '@/poses/library';
 import { recordCapture, track, uploadCapture } from '@/services/firebase';
@@ -89,10 +90,16 @@ function Live({ pose, mode }: { pose: PoseDef; mode: string }) {
   const [auto, setAuto] = useState(true);
   const [voice, setVoice] = useState(false);
   const [showSelf, setShowSelf] = useState(true);
+  // Face poses are selfies, so they start on the front camera; everything else on the back one.
+  const [facing, setFacing] = useState<'front' | 'back'>(() => (pose.frame === 'face' ? 'front' : 'back'));
+  // The front preview is a mirror: the ghost is flipped to match and left/right wording flips with it.
+  const mirrored = facing === 'front';
+  const mirroredRef = useRef(mirrored);
+  mirroredRef.current = mirrored;
   const [last, setLast] = useState<{ uri: string; score: number | null } | null>(null);
   const [preview, setPreview] = useState(false);
 
-  const targets = useMemo(() => (view ? placePose(pose, view) : []), [pose, view]);
+  const targets = useMemo(() => (view ? placePose(mirrored ? mirrorPose(pose) : pose, view) : []), [pose, view, mirrored]);
   const targetsRef = useRef(targets);
   targetsRef.current = targets;
   const autoRef = useRef(auto);
@@ -113,7 +120,7 @@ function Live({ pose, mode }: { pose: PoseDef; mode: string }) {
     lastPhase.current = null;
     setHoldProgress(0);
     setGuidance(null);
-  }, [pose.id, hold, smoother]);
+  }, [pose.id, facing, hold, smoother]);
   useEffect(() => () => clearTimeout(cooldown.current), []);
 
   const onResults = useCallback((bundle: PoseDetectionResultBundle, vc: ViewCoordinator) => {
@@ -123,7 +130,7 @@ function Live({ pose, mode }: { pose: PoseDef; mode: string }) {
     const raw = extractPeople(bundle).map((lms) => toSkeleton(lms, (x, y) => vc.convertPoint(dims, { x, y })));
     const now = Date.now();
     const people = smoother.smooth(raw, now);
-    const g = evaluateScene(t, people);
+    const g = evaluateScene(t, people, { mirrored: mirroredRef.current });
     scoreRef.current = g.score;
     const p = autoRef.current && !busy.current ? hold.push(g.phase === 'ready', now) : 0;
 
@@ -146,6 +153,8 @@ function Live({ pose, mode }: { pose: PoseDef; mode: string }) {
   const solution = usePoseDetection({ onResults, onError }, RunningMode.LIVE_STREAM, MODEL, {
     numPoses: Math.min(8, pose.people + 1),
     delegate: Delegate.GPU,
+    // Same on every platform: the front camera's preview is mirrored, and so are the landmarks.
+    mirrorMode: 'mirror-front-only',
     minPoseDetectionConfidence: 0.5,
     minPosePresenceConfidence: 0.5,
     minTrackingConfidence: 0.5,
@@ -210,7 +219,7 @@ function Live({ pose, mode }: { pose: PoseDef; mode: string }) {
 
   return (
     <View style={styles.fill} onLayout={onLayout}>
-      <MediapipeCamera ref={cameraRef} style={StyleSheet.absoluteFill} solution={solution} activeCamera="back" resizeMode="cover" />
+      <MediapipeCamera ref={cameraRef} style={StyleSheet.absoluteFill} solution={solution} activeCamera={facing} resizeMode="cover" />
       {view ? <GhostOverlay size={view} figures={targets} guidance={guidance} users={users} showUsers={showSelf} /> : null}
 
       <SafeAreaView style={styles.hud} pointerEvents="box-none">
@@ -223,6 +232,7 @@ function Live({ pose, mode }: { pose: PoseDef; mode: string }) {
             <Text style={styles.tip} numberOfLines={1}>{pose.tip}</Text>
           </View>
           <View style={styles.toggles}>
+            <Toggle label="Flip" on={mirrored} onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} />
             <Toggle label="Voice" on={voice} onPress={() => setVoice((v) => !v)} />
             <Toggle label="Me" on={showSelf} onPress={() => setShowSelf((v) => !v)} />
           </View>
@@ -239,8 +249,8 @@ function Live({ pose, mode }: { pose: PoseDef; mode: string }) {
         {pose.mode === 'group' ? (
           <View style={styles.sizes}>
             {GROUP_SIZES.map((n) => (
-              <Pressable key={n} onPress={() => go(`group-${n}`)} style={[styles.size, pose.people === n && styles.sizeOn]}>
-                <Text style={[styles.sizeText, pose.people === n && { color: colors.bg }]}>{n}</Text>
+              <Pressable key={n} onPress={() => go(`group-${n}`)} style={[styles.size, pose.id === `group-${n}` && styles.sizeOn]}>
+                <Text style={[styles.sizeText, pose.id === `group-${n}` && { color: colors.bg }]}>{n}</Text>
               </Pressable>
             ))}
           </View>

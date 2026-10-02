@@ -2,12 +2,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PoseThumb } from '@/components/PoseThumb';
-import { getPose, groupPose } from '@/poses/library';
+import { getPose, posesForMode } from '@/poses/library';
 import { useApp } from '@/store/app';
 import { colors, radius, space } from '@/theme';
 
 const MODES = [
-  { mode: 'solo', title: 'Solo', sub: 'Pose guide for one', poseId: 'hands-on-hips' },
+  { mode: 'face', title: 'Face', sub: 'Head & shoulders portraits', poseId: 'face-cheek-rest-right' },
+  { mode: 'half', title: 'Half body', sub: 'Waist-up shots', poseId: 'half-hands-on-hips' },
+  { mode: 'solo', title: 'Full body', sub: 'Head to toe', poseId: 'hero' },
   { mode: 'couple', title: 'Couple', sub: 'Two ghosts, two guides', poseId: 'couple-hold-hands' },
   { mode: 'group', title: 'Group', sub: '3 to 8 people', poseId: 'group-5' },
   { mode: 'funny', title: 'Funny', sub: 'Silly poses', poseId: 'airplane' },
@@ -33,12 +35,13 @@ export default function Home() {
 
         <View style={styles.grid}>
           {MODES.map((m) => {
-            const pose = m.mode === 'group' ? groupPose(5) : getPose(m.poseId)!;
+            const pose = getPose(m.poseId)!;
             return (
               <Pressable key={m.mode} style={styles.card} onPress={() => router.push({ pathname: '/poses/[mode]', params: { mode: m.mode } })}>
                 <PoseThumb pose={pose} width={140} height={150} />
                 <Text style={styles.cardTitle}>{m.title}</Text>
                 <Text style={styles.cardSub}>{m.sub}</Text>
+                <Text style={styles.cardCount}>{posesForMode(m.mode).length} poses</Text>
               </Pressable>
             );
           })}
@@ -64,6 +67,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, justifyContent: 'space-between' },
   card: { width: '47%', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: space.md, alignItems: 'center' },
   cardTitle: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: space.sm },
-  cardSub: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  cardSub: { color: colors.muted, fontSize: 12, marginTop: 2, textAlign: 'center' },
+  cardCount: { color: colors.ghost, fontSize: 11, fontWeight: '700', marginTop: 4 },
   how: { color: colors.muted, lineHeight: 22 },
 });
