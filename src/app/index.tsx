@@ -23,8 +23,9 @@ export default function Home() {
             <Text style={styles.brand}>PoseDirector</Text>
             <Text style={styles.tag}>Match the ghost. We capture it.</Text>
           </View>
+          {/* expo-router rejects array styles on a Link asChild child, so the style is flattened */}
           <Link href="/paywall" asChild>
-            <Pressable style={[styles.badge, isPremium && styles.badgeOn]}>
+            <Pressable style={StyleSheet.flatten([styles.badge, isPremium && styles.badgeOn])}>
               <Text style={[styles.badgeText, isPremium && { color: colors.bg }]}>{isPremium ? 'PREMIUM' : 'GO PRO'}</Text>
             </Pressable>
           </Link>
