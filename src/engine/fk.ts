@@ -144,14 +144,20 @@ export function buildFigure(spec: FigureSpec, origin: Point = { x: 0, y: 0 }, fr
 
 export const FOOT_DROP = 0.03;
 
-/** Extent of a figure including head circle and a small foot allowance. */
-export function figureExtent(f: Figure): { minX: number; minY: number; maxX: number; maxY: number } {
+/**
+ * Extent of a figure including head circle and a small foot allowance. `ignore` leaves joints out,
+ * e.g. the elbows of a portrait: they hang below the frame and must not shrink the head.
+ */
+export function figureExtent(
+  f: Figure,
+  ignore: readonly string[] = [],
+): { minX: number; minY: number; maxX: number; maxY: number } {
   let minX = f.head.c.x - f.head.r;
   let maxX = f.head.c.x + f.head.r;
   let minY = f.head.c.y - f.head.r;
   let maxY = f.head.c.y + f.head.r;
   for (const [name, j] of Object.entries(f.joints)) {
-    if (!j) continue;
+    if (!j || ignore.includes(name)) continue;
     const drop = name.endsWith('Ankle') ? FOOT_DROP : 0;
     minX = Math.min(minX, j.x);
     maxX = Math.max(maxX, j.x);

@@ -150,9 +150,14 @@ export type PoseCategory =
   | 'couple'
   | 'group'
   | 'travel'
-  | 'power';
+  | 'power'
+  | 'portrait'
+  | 'fashion'
+  | 'romantic'
+  | 'sport';
 
-export type PoseMode = 'solo' | 'couple' | 'group';
+/** Which section of the app a pose lives in: face close-ups, waist-up, full body, couple, group. */
+export type PoseMode = 'face' | 'half' | 'solo' | 'couple' | 'group';
 
 export interface PoseDef {
   id: string;

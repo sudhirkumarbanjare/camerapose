@@ -17,13 +17,21 @@ export const FRAME_LAYOUT: Record<PoseFrame, Required<LayoutOptions>> = {
   face: { heightFrac: 0.5, bottomFrac: 0.76, widthFrac: 0.9 },
 };
 
+/**
+ * Scene height a typical pose of each framing has (standing body, head-to-waist, head-to-shoulders).
+ * Poses are scaled by max(their own height, this), so the body is drawn at the same size from pose
+ * to pose and the user does not have to move for every shot. A pose only shrinks when its arms
+ * raise it above this height or spread too wide for the screen.
+ */
+export const REF_HEIGHT: Record<PoseFrame, number> = { full: 1, upper: 0.5, face: 0.25 };
+
 /** Scales and positions a pose scene into view pixels. */
 export function placePose(pose: PoseDef, view: Size, opts: LayoutOptions = {}): PlacedFigure[] {
   const base = FRAME_LAYOUT[pose.frame];
   const heightFrac = opts.heightFrac ?? base.heightFrac;
   const bottomFrac = opts.bottomFrac ?? base.bottomFrac;
   const widthFrac = opts.widthFrac ?? base.widthFrac;
-  const scale = Math.min((view.height * heightFrac) / pose.height, (view.width * widthFrac) / pose.width);
+  const scale = Math.min((view.height * heightFrac) / Math.max(pose.height, REF_HEIGHT[pose.frame]), (view.width * widthFrac) / pose.width);
   const ox = (view.width - pose.width * scale) / 2;
   const oy = view.height * bottomFrac - pose.height * scale;
 
