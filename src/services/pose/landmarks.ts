@@ -3,6 +3,14 @@ import type { AnyJointName, Joint, Skeleton } from '@/engine/types';
 /** MediaPipe Pose landmark indices for the joints the engine uses. */
 export const MP_INDEX: Partial<Record<AnyJointName, number>> = {
   nose: 0,
+  leftEye: 2,
+  rightEye: 5,
+  leftEar: 7,
+  rightEar: 8,
+  mouthLeft: 9,
+  mouthRight: 10,
+  leftIndex: 19,
+  rightIndex: 20,
   leftShoulder: 11,
   rightShoulder: 12,
   leftElbow: 13,

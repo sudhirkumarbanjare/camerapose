@@ -1,5 +1,5 @@
 import { buildFigure, figureExtent, translateFigure, type FigureSpec } from '@/engine/fk';
-import type { BoneName, Figure, PoseCategory, PoseDef, PoseMode } from '@/engine/types';
+import type { BoneName, Figure, JointName, PoseCategory, PoseDef, PoseFrame, PoseMode } from '@/engine/types';
 
 interface Placement {
   spec: FigureSpec;
@@ -9,6 +9,8 @@ interface Placement {
   scale?: number;
   /** Bones this person may legitimately hide (see Figure.occluded). */
   occluded?: BoneName[];
+  /** Joints judged by position (hand to face); see Figure.points. */
+  points?: JointName[];
 }
 
 interface Meta {
@@ -19,12 +21,14 @@ interface Meta {
   difficulty: 1 | 2 | 3;
   premium?: boolean;
   tip: string;
+  /** How much of the body is shown; defaults to the full body. */
+  frame?: PoseFrame;
 }
 
 /** Builds a PoseDef and shifts the scene so its bounding box starts at (0,0). */
 export function makePose(meta: Meta, placements: Placement[]): PoseDef {
   const raw: Figure[] = placements.map((p) => {
-    const f = { ...buildFigure(p.spec, { x: p.x ?? 0, y: p.y ?? 0 }), occluded: p.occluded };
+    const f = { ...buildFigure(p.spec, { x: p.x ?? 0, y: p.y ?? 0 }, meta.frame ?? 'full'), occluded: p.occluded, points: p.points };
     return p.scale && p.scale !== 1 ? translateFigure(f, 0, 0, p.scale, { x: p.x ?? 0, y: (p.y ?? 0) + 0.52 }) : f;
   });
   let minX = Infinity;
@@ -40,6 +44,7 @@ export function makePose(meta: Meta, placements: Placement[]): PoseDef {
   }
   return {
     ...meta,
+    frame: meta.frame ?? 'full',
     premium: meta.premium ?? false,
     people: raw.length,
     figures: raw.map((f) => translateFigure(f, -minX, -minY)),

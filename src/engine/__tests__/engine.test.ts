@@ -8,7 +8,9 @@ import { scorePose } from '../match';
 import { PoseSmoother } from '../smooth';
 import { mapSkeleton } from '../skeleton';
 import type { PlacedFigure, Skeleton } from '../types';
-import { getPose, groupPose } from '@/poses/library';
+import { getPose, groupPose, makePose } from '@/poses/library';
+import { describeFix } from '../coach';
+import { mirrorPose } from '../mirror';
 
 const VIEW = { width: 400, height: 800 };
 const place = (id: string) => placePose(getPose(id)!, VIEW);
@@ -314,5 +316,118 @@ describe('PoseSmoother', () => {
     const f = frame(100);
     f.leftWrist = { ...f.leftWrist!, v: 0.1 };
     assert.equal(sm.smooth([f], 1066)[0].leftWrist!.v, 0.1);
+  });
+});
+
+describe('framings: face and upper body', () => {
+  const FACE = makePose(
+    { id: 't-face', name: 'Hand on cheek', mode: 'solo', category: 'casual', difficulty: 1, tip: '', frame: 'face' },
+    [{ spec: { head: 6, rUpper: -80, rFore: 150 }, points: ['rightIndex'] }],
+  );
+  const UPPER = makePose(
+    { id: 't-upper', name: 'Arms out', mode: 'solo', category: 'casual', difficulty: 1, tip: '', frame: 'upper' },
+    [{ spec: { lUpper: 70, lFore: 100, rUpper: -70, rFore: -100 } }],
+  );
+  const person = (s: Skeleton, dx = 0, dy = 0, k = 1) => shift(s, dx, dy, k);
+  const earDist = (s: Skeleton) => Math.hypot(s.leftEar!.x - s.rightEar!.x, s.leftEar!.y - s.rightEar!.y);
+
+  it('builds only the joints a framing needs', () => {
+    assert.equal(FACE.figures[0].joints.leftAnkle, undefined);
+    assert.equal(UPPER.figures[0].joints.leftHip, undefined);
+    assert.ok(FACE.figures[0].joints.leftEar && FACE.figures[0].joints.rightIndex);
+    assert.ok(getPose('relaxed')!.figures[0].joints.leftAnkle);
+  });
+
+  it('a face pose matches itself at any scale and offset', () => {
+    const [t] = placePose(FACE, VIEW);
+    assert.deepEqual(t.points, ['rightIndex']);
+    const r = scorePose(t.joints, person(t.joints, 30, -20, 0.7), t.occluded, { frame: 'face', points: t.points });
+    assert.equal(r.matched, true);
+    assert.equal(r.points.length, 1);
+  });
+
+  it('asks the hand to move when it is not where the pose wants it', () => {
+    const [t] = placePose(FACE, VIEW);
+    const user = person(t.joints);
+    const k = earDist(user);
+    // hand dropped well below the cheek
+    user.rightIndex = { ...user.rightIndex!, y: user.rightIndex!.y + 1.5 * k };
+    user.rightWrist = { ...user.rightWrist!, y: user.rightWrist!.y + 1.5 * k };
+    const g = evaluateScene([t], [user]);
+    assert.equal(g.phase, 'pose');
+    assert.match(g.headline, /Raise your right hand/);
+  });
+
+  it('asks to show a hidden hand in a hand-to-face pose', () => {
+    const [t] = placePose(FACE, VIEW);
+    const user = person(t.joints);
+    user.rightIndex = { ...user.rightIndex!, v: 0.05 };
+    const g = evaluateScene([t], [user]);
+    assert.equal(g.headline, 'Show your right hand');
+  });
+
+  it('uses face-specific framing and accepts a close-up that a full-body pose would reject', () => {
+    const [t] = placePose(FACE, VIEW);
+    const user = person(t.joints);
+    user.leftEye = { ...user.leftEye!, v: 0.05 };
+    assert.equal(evaluateScene([t], [user]).phase, 'framing');
+    assert.match(evaluateScene([t], [user]).headline, /face and shoulders/);
+    assert.equal(evaluateScene([t], [person(t.joints, 3, 3)]).phase, 'ready');
+  });
+
+  it('upper-body poses need no hips or legs to be ready', () => {
+    const [t] = placePose(UPPER, VIEW);
+    assert.equal(evaluateScene([t], [person(t.joints, 4, 2)]).phase, 'ready');
+  });
+
+  it('the face framing positions on ear distance, so moving closer is detected', () => {
+    const [t] = placePose(FACE, VIEW);
+    const g = evaluateScene([t], [person(t.joints, 0, 0, 0.6)]);
+    assert.equal(g.phase, 'position');
+    assert.match(g.headline, /closer/);
+  });
+});
+
+describe('mirroring (selfie camera)', () => {
+  it('mirrorPose twice returns the original pose', () => {
+    for (const id of ['hands-on-hips', 'couple-hold-hands', 'walking']) {
+      const p = getPose(id)!;
+      const twice = mirrorPose(mirrorPose(p));
+      p.figures.forEach((f, i) => {
+        for (const [k, j] of Object.entries(f.joints)) {
+          const b = twice.figures[i].joints[k as keyof typeof f.joints]!;
+          assert.ok(Math.abs(b.x - j!.x) < 1e-9 && Math.abs(b.y - j!.y) < 1e-9, `${id}.${k}`);
+        }
+        assert.deepEqual(twice.figures[i].occluded, f.occluded);
+      });
+    }
+  });
+
+  it('puts the subject\'s left on the screen\'s left and keeps limb identity', () => {
+    const p = getPose('couple-hold-hands')!;
+    const m = mirrorPose(p);
+    assert.ok(p.figures[0].joints.leftShoulder!.x > p.figures[0].joints.rightShoulder!.x, 'normal view: left is screen-right');
+    assert.ok(m.figures[0].joints.leftShoulder!.x < m.figures[0].joints.rightShoulder!.x, 'mirrored view: left is screen-left');
+    assert.deepEqual(m.figures[0].occluded, p.figures[0].occluded);
+    // the figure that was on the left is now on the right
+    assert.ok(m.figures[0].joints.nose!.x > m.figures[1].joints.nose!.x);
+  });
+
+  it('a mirrored target scores against a mirrored person exactly like the normal one does', () => {
+    const p = getPose('hands-on-hips')!;
+    const [normal] = placePose(p, VIEW);
+    const [flipped] = placePose(mirrorPose(p), VIEW);
+    assert.equal(scorePose(flipped.joints, shift(flipped.joints, 12, 4)).matched, true);
+    assert.ok(scorePose(normal.joints, flipped.joints).score! < 0.7, 'a flipped body does not match an unflipped ghost');
+  });
+
+  it('flips in/out wording in a mirrored preview', () => {
+    const [t] = place('hands-on-hips');
+    const user = shift(t.joints, 0, 0);
+    const sh = user.leftShoulder!;
+    user.leftElbow = { x: sh.x, y: sh.y + 60, v: 0.99 }; // left upper arm hanging straight down
+    user.leftWrist = { x: sh.x, y: sh.y + 120, v: 0.99 };
+    assert.equal(describeFix('leftUpperArm', t.joints, user, false), 'Move your left arm out');
+    assert.equal(describeFix('leftUpperArm', t.joints, user, true), 'Move your left arm in');
   });
 });

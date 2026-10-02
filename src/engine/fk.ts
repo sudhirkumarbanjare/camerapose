@@ -1,5 +1,5 @@
 import { rad } from './skeleton';
-import type { Figure, Point } from './types';
+import type { Figure, JointName, Point, PoseFrame, Skeleton } from './types';
 
 /**
  * Forward-kinematics pose authoring.
@@ -9,20 +9,28 @@ import type { Figure, Point } from './types';
  *   0 = straight down, +90 = toward screen right, 180 = straight up,
  *   -90 = toward screen left.
  * "l*" limbs are the subject's left (screen right), "r*" the subject's right.
+ * A limb whose angles are omitted is not built (so a portrait can leave the legs out).
  */
 export interface FigureSpec {
   /** Spine tilt from vertical; + leans the top toward screen right. */
   lean?: number;
-  /** Extra head tilt on top of the spine. */
+  /** Extra head tilt (roll) on top of the spine. */
   head?: number;
-  lUpper: number;
-  lFore: number;
-  rUpper: number;
-  rFore: number;
-  lThigh: number;
-  lShin: number;
-  rThigh: number;
-  rShin: number;
+  /** Head turn: -1 = fully toward screen left, +1 = toward screen right (nose moves, ears stay). */
+  yaw?: number;
+  /** Chin: +1 = chin up, -1 = chin down (face features slide up / down). */
+  pitch?: number;
+  lUpper?: number;
+  lFore?: number;
+  rUpper?: number;
+  rFore?: number;
+  /** Extra bend of the hand (index fingertip) relative to the forearm direction. */
+  lHand?: number;
+  rHand?: number;
+  lThigh?: number;
+  lShin?: number;
+  rThigh?: number;
+  rShin?: number;
 }
 
 const L = {
@@ -32,16 +40,24 @@ const L = {
   halfHip: 0.085,
   upperArm: 0.17,
   foreArm: 0.15,
+  /** Wrist to index fingertip. */
+  finger: 0.07,
   thigh: 0.245,
   shin: 0.245,
   headR: 0.07,
 };
 
+/** Max head turn, in degrees, at yaw = +-1. */
+const MAX_YAW_DEG = 40;
+
 const dir = (angleDeg: number): Point => ({ x: Math.sin(rad(angleDeg)), y: Math.cos(rad(angleDeg)) });
 const add = (p: Point, d: Point, len: number): Point => ({ x: p.x + d.x * len, y: p.y + d.y * len });
 
-/** Builds a figure with its hip-mid at `origin`. */
-export function buildFigure(spec: FigureSpec, origin: Point = { x: 0, y: 0 }): Figure {
+/**
+ * Builds a figure with its hip-mid at `origin`. `frame` decides which joints exist: full builds the
+ * whole body; upper stops at the waist; face keeps head, shoulders and any arms the spec gives.
+ */
+export function buildFigure(spec: FigureSpec, origin: Point = { x: 0, y: 0 }, frame: PoseFrame = 'full'): Figure {
   const lean = spec.lean ?? 0;
   const up = { x: Math.sin(rad(lean)), y: -Math.cos(rad(lean)) };
   const across = { x: Math.cos(rad(lean)), y: Math.sin(rad(lean)) }; // toward subject's left
@@ -50,42 +66,80 @@ export function buildFigure(spec: FigureSpec, origin: Point = { x: 0, y: 0 }): F
   const midShoulder = add(midHip, up, L.spine);
   const lShoulder = add(midShoulder, across, L.halfShoulder);
   const rShoulder = add(midShoulder, across, -L.halfShoulder);
-  const lHip = add(midHip, across, L.halfHip);
-  const rHip = add(midHip, across, -L.halfHip);
 
-  const headUp = { x: Math.sin(rad(lean + (spec.head ?? 0))), y: -Math.cos(rad(lean + (spec.head ?? 0))) };
-  const nose = add(midShoulder, headUp, L.neck);
-  const headC = add(nose, headUp, 0.012);
+  const headTilt = lean + (spec.head ?? 0);
+  const headUp = { x: Math.sin(rad(headTilt)), y: -Math.cos(rad(headTilt)) };
+  const headAcross = { x: Math.cos(rad(headTilt)), y: Math.sin(rad(headTilt)) };
+  const nose0 = add(midShoulder, headUp, L.neck);
+  const headC = add(nose0, headUp, 0.012);
 
-  const lElbow = add(lShoulder, dir(spec.lUpper), L.upperArm);
-  const rElbow = add(rShoulder, dir(spec.rUpper), L.upperArm);
-  const lWrist = add(lElbow, dir(spec.lFore), L.foreArm);
-  const rWrist = add(rElbow, dir(spec.rFore), L.foreArm);
-  const lKnee = add(lHip, dir(spec.lThigh), L.thigh);
-  const rKnee = add(rHip, dir(spec.rThigh), L.thigh);
-  const lAnkle = add(lKnee, dir(spec.lShin), L.shin);
-  const rAnkle = add(rKnee, dir(spec.rShin), L.shin);
+  // Face features in head-local coords: u across (toward subject's left), v up from the head centre.
+  const yawRad = rad((spec.yaw ?? 0) * MAX_YAW_DEG);
+  const pitchShift = (spec.pitch ?? 0) * 0.022;
+  const at = (u: number, v: number): Point => ({
+    x: headC.x + headAcross.x * u + headUp.x * v,
+    y: headC.y + headAcross.y * u + headUp.y * v,
+  });
+  const cos = Math.cos(yawRad);
+  const sin = Math.sin(yawRad);
+  const r = L.headR;
+  const nose = at(r * 1.1 * sin, -0.012 + pitchShift);
 
-  return {
-    joints: {
-      nose,
-      leftShoulder: lShoulder,
-      rightShoulder: rShoulder,
-      leftElbow: lElbow,
-      rightElbow: rElbow,
-      leftWrist: lWrist,
-      rightWrist: rWrist,
-      leftHip: lHip,
-      rightHip: rHip,
-      leftKnee: lKnee,
-      rightKnee: rKnee,
-      leftAnkle: lAnkle,
-      rightAnkle: rAnkle,
-      midShoulder,
-      midHip,
-    },
-    head: { c: headC, r: L.headR },
+  const joints: Skeleton = {
+    nose,
+    leftShoulder: lShoulder,
+    rightShoulder: rShoulder,
+    midShoulder,
   };
+
+  // Face detail (cheap, and needed for the portrait framings and head-roll scoring).
+  Object.assign(joints, {
+    leftEye: at(0.032 * cos + r * 0.9 * sin, 0.02 + pitchShift),
+    rightEye: at(-0.032 * cos + r * 0.9 * sin, 0.02 + pitchShift),
+    leftEar: at(r * cos, -0.005),
+    rightEar: at(-r * cos, -0.005),
+    mouthLeft: at(0.02 * cos + r * 0.95 * sin, -0.042 + pitchShift),
+    mouthRight: at(-0.02 * cos + r * 0.95 * sin, -0.042 + pitchShift),
+  } satisfies Partial<Record<JointName, Point>>);
+
+  const arm = (side: 'l' | 'r') => {
+    const upper = spec[`${side}Upper` as const];
+    const fore = spec[`${side}Fore` as const];
+    if (upper === undefined || fore === undefined) return;
+    const shoulder = side === 'l' ? lShoulder : rShoulder;
+    const elbow = add(shoulder, dir(upper), L.upperArm);
+    const wrist = add(elbow, dir(fore), L.foreArm);
+    const index = add(wrist, dir(fore + (spec[`${side}Hand` as const] ?? 0)), L.finger);
+    const name = side === 'l' ? 'left' : 'right';
+    joints[`${name}Elbow` as const] = elbow;
+    joints[`${name}Wrist` as const] = wrist;
+    joints[`${name}Index` as const] = index;
+  };
+  arm('l');
+  arm('r');
+
+  if (frame === 'full') {
+    const lHip = add(midHip, across, L.halfHip);
+    const rHip = add(midHip, across, -L.halfHip);
+    joints.midHip = midHip;
+    joints.leftHip = lHip;
+    joints.rightHip = rHip;
+    const leg = (side: 'l' | 'r') => {
+      const thigh = spec[`${side}Thigh` as const];
+      const shin = spec[`${side}Shin` as const];
+      if (thigh === undefined || shin === undefined) return;
+      const hip = side === 'l' ? lHip : rHip;
+      const knee = add(hip, dir(thigh), L.thigh);
+      const ankle = add(knee, dir(shin), L.shin);
+      const name = side === 'l' ? 'left' : 'right';
+      joints[`${name}Knee` as const] = knee;
+      joints[`${name}Ankle` as const] = ankle;
+    };
+    leg('l');
+    leg('r');
+  }
+
+  return { joints, head: { c: headC, r: L.headR } };
 }
 
 export const FOOT_DROP = 0.03;
@@ -116,5 +170,5 @@ export function translateFigure(f: Figure, dx: number, dy: number, scale = 1, pi
   for (const [k, j] of Object.entries(f.joints)) {
     if (j) joints[k as keyof Figure['joints']] = t(j);
   }
-  return { joints, head: { c: t(f.head.c), r: f.head.r * scale }, occluded: f.occluded };
+  return { joints, head: { c: t(f.head.c), r: f.head.r * scale }, occluded: f.occluded, points: f.points };
 }

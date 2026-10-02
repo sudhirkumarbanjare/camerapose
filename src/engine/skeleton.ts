@@ -1,4 +1,4 @@
-import { JOINT_NAMES, type Box, type Joint, type Point, type Skeleton } from './types';
+import { BODY_JOINTS, JOINT_NAMES, type Box, type Joint, type Point, type PoseFrame, type Skeleton } from './types';
 
 export const VISIBLE_MIN = 0.5;
 
@@ -70,34 +70,88 @@ export const deg = (r: number) => (r * 180) / Math.PI;
 export const rad = (d: number) => (d * Math.PI) / 180;
 
 export interface Anchor {
-  /** Horizontal body centre, from the torso (arm and leg positions don't move it). */
+  /** Horizontal body centre (limb positions don't move it). */
   x: number;
-  /** Nose to ankle-midpoint distance, used as the body's apparent height. */
+  /**
+   * Apparent size used to compare "how close" two people are. Only ratios of this value between a
+   * person and a target are ever used, so the unit is arbitrary but must be consistent per frame.
+   */
   h: number;
 }
 
-/** Pose-independent position/scale reference for a person. Null if torso, nose or ankles are hidden. */
-export function anchorOf(s: Skeleton): Anchor | null {
-  const xs = (['leftShoulder', 'rightShoulder', 'leftHip', 'rightHip'] as const).map((k) => s[k]);
-  const nose = s.nose;
-  const la = s.leftAnkle;
-  const ra = s.rightAnkle;
-  if (!xs.every(isVisible) || !isVisible(nose) || !isVisible(la) || !isVisible(ra)) return null;
-  const x = xs.reduce((a, j) => a + j.x, 0) / 4;
-  const h = (la.y + ra.y) / 2 - nose.y;
-  return h > 0 ? { x, h } : null;
-}
-
-/** Joints that must be visible before a detection is treated as a real person. */
-const MIN_PERSON_JOINTS = 8;
+const dist = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
 
 /**
- * Rejects posters, mannequins and sliver detections: needs a shoulder pair and at least
- * MIN_PERSON_JOINTS visible joints.
+ * Pose-independent position/scale reference for a person in a given framing, or null if the joints
+ * it needs are hidden.
+ * - full: torso centre and nose-to-ankle height
+ * - upper: shoulder midpoint and shoulder width
+ * - face: ear (or eye) midpoint and ear (or eye) distance
  */
-export function isPerson(s: Skeleton): boolean {
+export function anchorOf(s: Skeleton, frame: PoseFrame = 'full'): Anchor | null {
+  if (frame === 'full') {
+    const xs = (['leftShoulder', 'rightShoulder', 'leftHip', 'rightHip'] as const).map((k) => s[k]);
+    const nose = s.nose;
+    const la = s.leftAnkle;
+    const ra = s.rightAnkle;
+    if (!xs.every(isVisible) || !isVisible(nose) || !isVisible(la) || !isVisible(ra)) return null;
+    const x = xs.reduce((a, j) => a + j.x, 0) / 4;
+    const h = (la.y + ra.y) / 2 - nose.y;
+    return h > 0 ? { x, h } : null;
+  }
+  // upper / face: a lateral pair gives both the centre and the scale (x3 puts it in "body height" units)
+  const pair =
+    frame === 'face'
+      ? ([s.leftEar, s.rightEar].every(isVisible) ? [s.leftEar, s.rightEar] : [s.leftEye, s.rightEye])
+      : [s.leftShoulder, s.rightShoulder];
+  const [a, b] = pair;
+  if (!isVisible(a) || !isVisible(b)) return null;
+  const w = dist(a, b);
+  return w > 0 ? { x: (a.x + b.x) / 2, h: w * 3 } : null;
+}
+
+/** Joints that must be visible for the framing to count as "in view". */
+const FRAME_REQUIRED: Record<PoseFrame, readonly (keyof Skeleton)[]> = {
+  full: ['nose', 'leftShoulder', 'rightShoulder', 'leftAnkle', 'rightAnkle'],
+  upper: ['nose', 'leftShoulder', 'rightShoulder'],
+  face: ['nose', 'leftEye', 'rightEye', 'leftShoulder', 'rightShoulder'],
+};
+
+export function frameVisible(s: Skeleton, frame: PoseFrame = 'full'): boolean {
+  return FRAME_REQUIRED[frame].every((k) => isVisible(s[k]));
+}
+
+/** Distance used to normalise "point" joints (hands): ear distance for face, shoulder width otherwise. */
+export function pointScale(s: Skeleton, frame: PoseFrame): number | null {
+  const pair = frame === 'face' ? [s.leftEar, s.rightEar] : [s.leftShoulder, s.rightShoulder];
+  const [a, b] = pair;
+  if (!isVisible(a) || !isVisible(b)) return null;
+  const d = dist(a, b);
+  return d > 0 ? d : null;
+}
+
+/** Position of `joint` relative to the nose, in `pointScale` units. Null if it can't be measured. */
+export function relativePoint(s: Skeleton, joint: keyof Skeleton, frame: PoseFrame): Point | null {
+  const j = s[joint];
+  const nose = s.nose;
+  const k = pointScale(s, frame);
+  if (!isVisible(j) || !isVisible(nose) || k === null) return null;
+  return { x: (j.x - nose.x) / k, y: (j.y - nose.y) / k };
+}
+
+/** Minimum joints for a detection to be treated as a real person, per framing. */
+const MIN_PERSON_BODY_JOINTS = 8;
+
+/**
+ * Rejects posters, mannequins and sliver detections. Full body needs a shoulder pair plus 8 body
+ * joints; upper needs the shoulders, nose and one more body joint; face needs the shoulders, nose
+ * and at least two face joints (eyes/ears).
+ */
+export function isPerson(s: Skeleton, frame: PoseFrame = 'full'): boolean {
   if (!isVisible(s.leftShoulder) || !isVisible(s.rightShoulder)) return false;
-  let n = 0;
-  for (const name of JOINT_NAMES) if (isVisible(s[name])) n++;
-  return n >= MIN_PERSON_JOINTS;
+  const body = BODY_JOINTS.filter((n) => isVisible(s[n])).length;
+  if (frame === 'full') return body >= MIN_PERSON_BODY_JOINTS;
+  if (frame === 'upper') return body >= 4 && isVisible(s.nose);
+  const faceJoints = (['leftEye', 'rightEye', 'leftEar', 'rightEar'] as const).filter((n) => isVisible(s[n])).length;
+  return isVisible(s.nose) && faceJoints >= 2;
 }

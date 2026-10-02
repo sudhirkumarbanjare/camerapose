@@ -31,6 +31,8 @@ export function silhouette(f: PlacedFigure) {
 
 export const BONE_LINES: Record<BoneName, [keyof Skeleton, keyof Skeleton]> = {
   head: ['midShoulder', 'nose'],
+  eyeLine: ['rightEye', 'leftEye'],
+  earLine: ['rightEar', 'leftEar'],
   spine: ['midHip', 'midShoulder'],
   shoulders: ['rightShoulder', 'leftShoulder'],
   leftUpperArm: ['leftShoulder', 'leftElbow'],

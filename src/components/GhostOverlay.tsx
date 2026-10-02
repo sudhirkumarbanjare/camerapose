@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Text as SvgText } from 'react-native-svg';
 import { BONE_LINES, silhouette } from './figureShapes';
 import type { Guidance } from '@/engine/coach';
-import { BONES, type BoneName, type PlacedFigure, type Size, type Skeleton } from '@/engine/types';
+import { bonesFor, type BoneName, type PlacedFigure, type Size, type Skeleton } from '@/engine/types';
 import { isVisible } from '@/engine/skeleton';
 import { colors } from '@/theme';
 
@@ -27,9 +27,37 @@ const FigureBody = memo(function FigureBody({ figure }: { figure: PlacedFigure }
         <Path key={k} d={s.d} stroke={colors.ghost} strokeOpacity={0.16} strokeWidth={s.width} strokeLinecap="round" strokeLinejoin="round" fill="none" />
       ))}
       <Circle cx={figure.head.c.x} cy={figure.head.c.y} r={figure.head.r} fill={colors.ghost} fillOpacity={0.16} stroke={colors.ghost} strokeOpacity={0.9} strokeWidth={2.5} />
+      <FaceDetails figure={figure} />
     </G>
   );
 });
+
+/** Eyes, mouth, ears and fingertips: only meaningful (and big enough to see) in the close framings. */
+function FaceDetails({ figure }: { figure: PlacedFigure }) {
+  if (figure.frame === 'full') return null;
+  const j = figure.joints;
+  const dots = [j.leftEye, j.rightEye, j.leftEar, j.rightEar].filter(Boolean);
+  const r = Math.max(2.5, figure.head.r * 0.09);
+  return (
+    <G>
+      {dots.map((d, i) => (
+        <Circle key={i} cx={d!.x} cy={d!.y} r={r} fill={colors.ghost} fillOpacity={0.9} />
+      ))}
+      {j.mouthLeft && j.mouthRight ? (
+        <Line x1={j.mouthLeft.x} y1={j.mouthLeft.y} x2={j.mouthRight.x} y2={j.mouthRight.y} stroke={colors.ghost} strokeWidth={Math.max(2, r)} strokeLinecap="round" strokeOpacity={0.9} />
+      ) : null}
+      {(['left', 'right'] as const).map((side) => {
+        const w = j[`${side}Wrist` as const];
+        const i = j[`${side}Index` as const];
+        return w && i ? <Line key={side} x1={w.x} y1={w.y} x2={i.x} y2={i.y} stroke={colors.ghost} strokeWidth={Math.max(3, r * 1.6)} strokeLinecap="round" strokeOpacity={0.95} /> : null;
+      })}
+      {figure.points.map((name) => {
+        const p = j[name];
+        return p ? <Circle key={name} cx={p.x} cy={p.y} r={figure.head.r * 0.5} fill="none" stroke={colors.ghost} strokeWidth={2.5} strokeDasharray="6 5" /> : null;
+      })}
+    </G>
+  );
+}
 
 /**
  * The target pose as a translucent cyan "shadow" with a skeleton on top whose
@@ -37,6 +65,7 @@ const FigureBody = memo(function FigureBody({ figure }: { figure: PlacedFigure }
  * detected skeleton is drawn in white underneath for self-correction.
  */
 function GhostOverlayImpl({ size, figures, guidance, users, showUsers }: Props) {
+  const userFrame = figures[0]?.frame ?? 'full';
   return (
     <Svg width={size.width} height={size.height} style={StyleSheet.absoluteFill} pointerEvents="none">
       {figures.map((f, i) => {
@@ -49,7 +78,7 @@ function GhostOverlayImpl({ size, figures, guidance, users, showUsers }: Props) 
         return (
           <G key={i}>
             <FigureBody figure={f} />
-            {BONES.map((b) => {
+            {bonesFor(f.frame).map((b) => {
               const [a, c] = BONE_LINES[b.name];
               const ja = f.joints[a];
               const jc = f.joints[c];
@@ -73,7 +102,7 @@ function GhostOverlayImpl({ size, figures, guidance, users, showUsers }: Props) 
       {showUsers
         ? users.map((u, i) => (
             <G key={`u${i}`} opacity={0.75}>
-              {BONES.map((b) => {
+              {bonesFor(userFrame).map((b) => {
                 const [a, c] = BONE_LINES[b.name];
                 const ja = u[a];
                 const jc = u[c];

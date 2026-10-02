@@ -1,5 +1,5 @@
 import { anchorOf, center, isPerson, skeletonBox } from './skeleton';
-import type { PlacedFigure, Skeleton } from './types';
+import type { PlacedFigure, PoseFrame, Skeleton } from './types';
 
 export interface Assignment {
   /** Same length as targets; null where nobody has been matched to that slot yet. */
@@ -8,14 +8,14 @@ export interface Assignment {
   extra: number;
 }
 
-const xOf = (s: Skeleton) => {
-  const a = anchorOf(s);
+const xOf = (s: Skeleton, frame: PoseFrame) => {
+  const a = anchorOf(s, frame);
   if (a) return a.x;
   const b = skeletonBox(s);
   return b ? center(b).x : Infinity;
 };
 
-const slotX = (t: PlacedFigure) => anchorOf(t.joints)?.x ?? center(t.box).x;
+const slotX = (t: PlacedFigure) => anchorOf(t.joints, t.frame)?.x ?? center(t.box).x;
 
 /**
  * Pairs detected people with target slots.
@@ -27,16 +27,17 @@ const slotX = (t: PlacedFigure) => anchorOf(t.joints)?.x ?? center(t.box).x;
  */
 export function assignPeople(detected: Skeleton[], targets: PlacedFigure[]): Assignment {
   const people: (Skeleton | null)[] = targets.map(() => null);
-  const usable = detected.filter(isPerson);
+  const frame: PoseFrame = targets[0]?.frame ?? 'full';
+  const usable = detected.filter((s) => isPerson(s, frame));
 
   if (targets.length === 1) {
     const tx = slotX(targets[0]);
-    const best = [...usable].sort((a, b) => Math.abs(xOf(a) - tx) - Math.abs(xOf(b) - tx))[0];
+    const best = [...usable].sort((a, b) => Math.abs(xOf(a, frame) - tx) - Math.abs(xOf(b, frame) - tx))[0];
     if (best) people[0] = best;
     return { people, extra: Math.max(0, usable.length - 1) };
   }
 
-  const sortedPeople = [...usable].sort((a, b) => xOf(a) - xOf(b));
+  const sortedPeople = [...usable].sort((a, b) => xOf(a, frame) - xOf(b, frame));
   const order = targets.map((_, i) => i).sort((a, b) => slotX(targets[a]) - slotX(targets[b]));
 
   if (sortedPeople.length >= targets.length) {
@@ -44,7 +45,7 @@ export function assignPeople(detected: Skeleton[], targets: PlacedFigure[]): Ass
     let bestCost = Infinity;
     for (let s = 0; s + targets.length <= sortedPeople.length; s++) {
       let cost = 0;
-      order.forEach((slot, i) => (cost += Math.abs(xOf(sortedPeople[s + i]) - slotX(targets[slot]))));
+      order.forEach((slot, i) => (cost += Math.abs(xOf(sortedPeople[s + i], frame) - slotX(targets[slot]))));
       if (cost < bestCost) {
         bestCost = cost;
         start = s;
