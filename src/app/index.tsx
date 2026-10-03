@@ -28,6 +28,7 @@ import { blendTransform, fitToPeople } from '@/reco/placement';
 import { BATCH, batchOf, rankPoses } from '@/reco/recommend';
 import { liveScene } from '@/scene/live';
 import type { SceneContext } from '@/scene/types';
+import { useSceneLabels } from '@/scene/useSceneLabels';
 import { recordCapture, track, uploadCapture } from '@/services/firebase';
 import { extractPeople, toSkeleton } from '@/services/pose/landmarks';
 import { useApp } from '@/store/app';
@@ -136,7 +137,9 @@ function Live() {
 
   // --- scene -> recommendations -------------------------------------------------------------
   const live = useMemo(() => liveScene(people), [people]);
-  const liveKey = `${live.people >= 3 ? `${Math.min(live.people, 8)}` : live.people}|${live.framing}|${facing}`;
+  // On-device ML Kit labels of the background (bench, wall, park, cafe...).
+  const tags = useSceneLabels(cameraRef, appActive);
+  const liveKey = `${live.people >= 3 ? `${Math.min(live.people, 8)}` : live.people}|${live.framing}|${facing}|${JSON.stringify(tags)}`;
   const [sceneKey, setSceneKey] = useState(liveKey);
   useEffect(() => {
     if (liveKey === sceneKey) return;
@@ -145,8 +148,9 @@ function Live() {
   }, [liveKey, sceneKey]);
 
   const scene: SceneContext = useMemo(() => {
-    const [n, framing, camera] = sceneKey.split('|');
-    return { people: Number(n), framing: framing === 'null' ? null : (framing as PoseFrame), camera: camera as 'front' | 'back' };
+    const [n, framing, camera, tagJson] = sceneKey.split('|');
+    const t = JSON.parse(tagJson || '{}') as Partial<SceneContext>;
+    return { people: Number(n), framing: framing === 'null' ? null : (framing as PoseFrame), camera: camera as 'front' | 'back', ...t };
   }, [sceneKey]);
   const ranked = useMemo(() => rankPoses(POSES, scene), [scene]);
   const saved = useMemo(() => favorites.map((id) => getPose(id)).filter((p): p is PoseDef => !!p), [favorites]);
@@ -287,7 +291,7 @@ function Live() {
 
   const onLayout = (e: LayoutChangeEvent) => setView({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height });
 
-  const seeing = `${scene.people === 0 ? 'nobody yet' : scene.people === 1 ? '1 person' : `${scene.people} people`}${scene.framing ? ` · ${FRAMING_LABEL[scene.framing]}` : ''}${scene.camera === 'front' ? ' · selfie' : ''}`;
+  const seeing = `${scene.people === 0 ? 'nobody yet' : scene.people === 1 ? '1 person' : `${scene.people} people`}${scene.framing ? ` · ${FRAMING_LABEL[scene.framing]}` : ''}${scene.camera === 'front' ? ' · selfie' : ''}${[...(scene.objects ?? []).map((o) => o.label), ...(scene.setting ?? []), ...(scene.occasion ?? [])].slice(0, 3).map((x) => ` · ${x}`).join('')}`;
   const hint =
     guidance && guidance.phase !== 'ready' && guidance.phase !== 'no-people' ? guidance.headline : guidance?.phase === 'ready' ? 'Hold it…' : people.length ? null : 'Step into the outline';
   const instruction = pose?.instruction ?? pose?.tip;
