@@ -1,12 +1,12 @@
 import type { Figure, PoseFrame } from '@/engine/types';
-import { figureOutline, type Outline } from './silhouette';
+import { figureOutline as fourierLasso } from './lassoFourier';
+import type { Outline } from './silhouette';
 
 /**
- * Huawei "lasso" outline: one loose, smooth, open line around each person (see the plan's
- * reverse-engineering notes). PLACEHOLDER until the lasso shootout winner lands: falls back to the
- * tight body outline so the rest of the pipeline (captions in gaps, style switch) can be wired up.
+ * Huawei "lasso" outline: one loose, smooth, open line around each person, reverse-engineered
+ * from the Huawei Pura 90 shots. Built by lassoFourier.ts (offset contour smoothed in the
+ * frequency domain); it won the outline lab on smoothness while keeping limbs readable.
  */
 export function lassoOutline(f: Figure, frame: PoseFrame, opts: { cell?: number } = {}, key?: string): Outline {
-  const o = figureOutline(f, frame, opts, key ? `lasso:${key}` : undefined);
-  return { body: o.body, inner: [] };
+  return fourierLasso(f, frame, opts, key);
 }
