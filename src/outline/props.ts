@@ -71,7 +71,7 @@ export const PROP_SHAPES: Record<PropKind, PropShape> = {
     align: 'upright',
     paths: [
       roundRect(-0.17, 0.02, 0.17, 0.065, 0.012),
-      'M-0.15 0.065L-0.15 0.48M0.15 0.065L0.15 0.48',
+      'M-0.15 0.065L-0.15 0.37M0.15 0.065L0.15 0.37',
       'M-0.16 0.02L-0.16 -0.34Q0 -0.37 0.16 -0.34L0.16 0.02',
       'M-0.16 -0.22Q0 -0.245 0.16 -0.22',
     ],
@@ -80,10 +80,10 @@ export const PROP_SHAPES: Record<PropKind, PropShape> = {
     // seen from the side, origin at the top of the backrest (where a hand rests on it)
     align: 'upright',
     paths: [
-      'M0 0L0.012 0.95',
+      'M0 0L0.008 0.52',
       'M-0.02 0Q0.01 -0.012 0.04 0',
-      'M0.008 0.5L0.27 0.5L0.27 0.53L0.01 0.53',
-      'M0.25 0.53L0.26 0.95',
+      'M0.006 0.25L0.24 0.25L0.24 0.275L0.007 0.275',
+      'M0.22 0.275L0.23 0.52',
     ],
   },
   bench: {
@@ -92,7 +92,7 @@ export const PROP_SHAPES: Record<PropKind, PropShape> = {
       roundRect(-0.6, 0.025, 0.6, 0.07, 0.015),
       'M-0.58 0.025L-0.58 -0.26L0.58 -0.26L0.58 0.025',
       'M-0.58 -0.12L0.58 -0.12',
-      'M-0.52 0.07L-0.52 0.48M0.52 0.07L0.52 0.48',
+      'M-0.52 0.07L-0.52 0.37M0.52 0.07L0.52 0.37',
     ],
   },
   bag: {

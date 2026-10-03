@@ -34,10 +34,18 @@ export function scorePoseForScene(p: PoseDef, s: SceneContext): number {
   if (s.camera === 'front' && have === 'full' && s.people <= 1) score -= 3; // hard to self-shoot full body
 
   // Scene tags (filled in by on-device labels / the cloud model).
-  const tags = new Set([...(s.setting ?? []), ...(s.occasion ?? []), ...(s.holds ?? []), ...(s.objects ?? []).map((o) => o.label)]);
+  const seen = new Set(
+    [...(s.setting ?? []), ...(s.occasion ?? []), ...(s.holds ?? []), ...(s.objects ?? []).map((o) => o.label)].map((t) => t.toLowerCase()),
+  );
+  const tags = p.tags ?? {};
+  // Furniture poses only make sense when that furniture is actually there.
+  if (tags.requires?.length && !tags.requires.some((r) => seen.has(r))) return -Infinity;
+  if (tags.requires?.length) score += 9; // the scene literally invites this pose
+  for (const o of tags.occasion ?? []) if (seen.has(o)) score += 7;
+  for (const h of tags.holds ?? []) if (seen.has(h)) score += 6;
+  for (const st of tags.setting ?? []) if (seen.has(st)) score += 2;
   const props = p.figures.flatMap((f) => (f.props ?? []).map((q) => q.kind as string));
-  for (const k of props) if (tags.has(k)) score += 5;
-  if (tags.has('graduation') && p.id.startsWith('grad')) score += 6;
+  for (const k of props) if (seen.has(k) && !(tags.holds ?? []).includes(k)) score += 3;
 
   // Cloud picks lead.
   const ai = s.aiPicks?.indexOf(p.id) ?? -1;

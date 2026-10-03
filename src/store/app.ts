@@ -12,6 +12,9 @@ interface AppState {
   /** Pose ids saved to the "Mine" tab (kept in memory for now). */
   favorites: string[];
   toggleFavorite: (id: string) => void;
+  /** Guide line style: Huawei-like loose 'lasso' (default) or tight 'body' silhouette. */
+  outlineStyle: 'lasso' | 'body';
+  toggleOutlineStyle: () => void;
 }
 
 /** Set EXPO_PUBLIC_FORCE_PREMIUM=1 to test premium poses without a RevenueCat setup. */
@@ -24,6 +27,8 @@ export const useApp = create<AppState>((set) => ({
   setUid: (uid) => set({ uid }),
   setPremium: (p) => set({ isPremium: p || FORCE_PREMIUM }),
   setFlags: (flags) => set({ flags }),
+  outlineStyle: 'lasso',
+  toggleOutlineStyle: () => set((st) => ({ outlineStyle: st.outlineStyle === 'lasso' ? 'body' : 'lasso' })),
   favorites: [],
   toggleFavorite: (id) => set((st) => ({ favorites: st.favorites.includes(id) ? st.favorites.filter((f) => f !== id) : [id, ...st.favorites] })),
 }));

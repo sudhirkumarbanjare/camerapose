@@ -94,6 +94,7 @@ export const ARMS_DOWN: Partial<FigureSpec> = { lUpper: 12, lFore: 8, rUpper: -1
 
 const swapKey = (k: string) => (k.startsWith('l') && k.length > 1 && k[1] === k[1].toUpperCase() ? 'r' + k.slice(1) : k.startsWith('r') && k.length > 1 && k[1] === k[1].toUpperCase() ? 'l' + k.slice(1) : k);
 const NEGATE: (keyof FigureSpec)[] = ['lean', 'head', 'yaw', 'lUpper', 'lFore', 'rUpper', 'rFore', 'lHand', 'rHand', 'lThigh', 'lShin', 'rThigh', 'rShin'];
+// *Len keys are swapped left<->right by swapKey but never negated.
 
 export function mirrorSpec(spec: FigureSpec): FigureSpec {
   const out: FigureSpec = {};

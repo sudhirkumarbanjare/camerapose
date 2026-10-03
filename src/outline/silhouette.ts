@@ -22,10 +22,10 @@ export interface OutlineOptions {
   cell?: number;
 }
 
-type Capsule = { kind: 'capsule'; a: Point; b: Point; ra: number; rb: number };
-type Ellipse = { kind: 'ellipse'; c: Point; rx: number; ry: number; rot: number };
-type Poly = { kind: 'poly'; pts: Point[] };
-type Shape = Capsule | Ellipse | Poly;
+export type Capsule = { kind: 'capsule'; a: Point; b: Point; ra: number; rb: number };
+export type Ellipse = { kind: 'ellipse'; c: Point; rx: number; ry: number; rot: number };
+export type Poly = { kind: 'poly'; pts: Point[] };
+export type Shape = Capsule | Ellipse | Poly;
 
 const sub = (a: Point, b: Point): Point => ({ x: a.x - b.x, y: a.y - b.y });
 const add = (a: Point, b: Point): Point => ({ x: a.x + b.x, y: a.y + b.y });
@@ -51,7 +51,7 @@ const W = {
   hipPad: 0.035,
 } as const;
 
-type Part = 'core' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg';
+export type Part = 'core' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg';
 
 function capsule(a: Point | undefined, b: Point | undefined, r: readonly [number, number] | number): Capsule | null {
   if (!a || !b) return null;
@@ -66,7 +66,8 @@ export function cropLine(j: Skeleton, frame: PoseFrame): number | null {
   return ms.y + (frame === 'upper' ? 0.33 : 0.16);
 }
 
-function bodyShapes(f: Figure, frame: PoseFrame): Record<Part, Shape[]> {
+/** Body-part shapes for a figure (exported so alternative outline styles can reuse them). */
+export function bodyShapes(f: Figure, frame: PoseFrame): Record<Part, Shape[]> {
   const j = f.joints;
   const parts: Record<Part, Shape[]> = { core: [], leftArm: [], rightArm: [], leftLeg: [], rightLeg: [] };
   const push = (p: Part, s: Shape | null) => s && parts[p].push(s);

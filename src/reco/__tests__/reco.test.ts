@@ -33,8 +33,10 @@ describe('recommendations follow the scene', () => {
     assert.ok(top({ framing: 'upper' }).every((p) => p.mode === 'half'));
   });
 
-  it('a bouquet in the scene brings the bouquet pose into the first batch', () => {
-    assert.equal(top({ holds: ['bouquet'] })[0].id, 'grad-bouquet-kick');
+  it('a bouquet in the scene puts bouquet poses first', () => {
+    const r = top({ holds: ['bouquet'] }, 3);
+    assert.ok(r.every((p) => p.tags?.holds?.includes('bouquet')), r.map((p) => p.id).join());
+    assert.ok(top({ holds: ['bouquet'] }).some((p) => p.id === 'grad-bouquet-kick'));
   });
 
   it('cloud picks lead the list', () => {
@@ -112,5 +114,34 @@ describe('placement guards', () => {
     const [huge] = placePose(pose, view, {}, { scale: 2000, ox: -600, oy: -900 });
     const person = mapSkeleton(huge.joints, (j) => ({ ...j, v: 0.9 }));
     assert.equal(fitToPeople(pose, view, [person]).fitted, false);
+  });
+});
+
+describe('situation and background drive the picks', () => {
+  const ids = (s: Partial<SceneContext>, n = BATCH) => top(s, n).map((p) => p.id);
+
+  it('a bench brings bench poses to the top; without one they never appear', () => {
+    const withBench = ids({ objects: [{ label: 'bench' }] }, 3);
+    assert.ok(withBench.every((id) => id.startsWith('bench')), withBench.join());
+    const all = rankPoses(POSES, scene({ framing: 'full' })).map((p) => p.id);
+    assert.ok(!all.some((id) => id.startsWith('bench') || id.startsWith('wall') || id.startsWith('railing') || id === 'stairs-sit'));
+  });
+
+  it('a wall gives wall leans; a railing gives railing poses', () => {
+    assert.ok(ids({ objects: [{ label: 'wall' }] }, 2).every((id) => id.startsWith('wall')));
+    assert.ok(ids({ objects: [{ label: 'railing' }] }, 2).every((id) => id.startsWith('railing')));
+  });
+
+  it('a graduation scene puts graduation poses first', () => {
+    assert.ok(ids({ occasion: ['graduation'] }, 4).every((id) => id.startsWith('grad')));
+  });
+
+  it('holding a balloon at a birthday suggests the balloon pose', () => {
+    assert.equal(ids({ occasion: ['birthday'], holds: ['balloon'] }, 1)[0], 'balloon-birthday');
+  });
+
+  it('a chair surfaces chair poses even for a waist-up view', () => {
+    const r = ids({ framing: 'full', objects: [{ label: 'chair' }] }, 4);
+    assert.ok(r.some((id) => id.startsWith('chair')), r.join());
   });
 });

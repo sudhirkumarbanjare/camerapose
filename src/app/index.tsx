@@ -119,6 +119,8 @@ function Live() {
   const uid = useApp((s) => s.uid);
   const favorites = useApp((s) => s.favorites);
   const toggleFavorite = useApp((s) => s.toggleFavorite);
+  const outlineStyle = useApp((s) => s.outlineStyle);
+  const toggleOutlineStyle = useApp((s) => s.toggleOutlineStyle);
 
   const [view, setView] = useState<Size | null>(null);
   const [facing, setFacing] = useState<'front' | 'back'>('back');
@@ -295,12 +297,13 @@ function Live() {
   return (
     <View style={styles.fill} onLayout={onLayout} {...swipe.panHandlers}>
       {appActive ? <DetectorCamera key={facing} ref={cameraRef} facing={facing} onResults={onResults} onError={onError} /> : null}
-      {view && pose ? <OutlineOverlay pose={pose} transform={transform ?? defaultTransform(pose, view)} size={view} match={guidance?.score} hint={hint} /> : null}
+      {view && pose ? <OutlineOverlay pose={pose} transform={transform ?? defaultTransform(pose, view)} size={view} match={guidance?.score} hint={hint} outlineStyle={outlineStyle} /> : null}
 
       <SafeAreaView style={styles.hud} pointerEvents="box-none">
         <View style={styles.topRow}>
           <IconButton label="⚡" dim={flash === 'off'} onPress={() => setFlash((f) => (f === 'on' ? 'off' : 'on'))} a11y="Flash" />
           <IconButton label={isSaved ? '♥' : '♡'} onPress={() => basePose && toggleFavorite(basePose.id)} onLongPress={() => setSavedOnly((v) => !v)} a11y="Save pose (long-press: saved poses only)" />
+          <IconButton label={outlineStyle === 'lasso' ? '〰' : '◯'} onPress={toggleOutlineStyle} a11y={`Outline style: ${outlineStyle}`} />
           <IconButton label="PRO" small onPress={() => router.push('/paywall')} a11y="Pro" />
         </View>
         {instruction ? (

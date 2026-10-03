@@ -1,5 +1,5 @@
 import { buildFigure, figureExtent, translateFigure, type FigureSpec } from '@/engine/fk';
-import type { BoneName, CaptionSpec, Figure, JointName, PoseCategory, PoseDef, PoseFrame, PoseMode, PropSpec } from '@/engine/types';
+import type { AnyJointName, BoneName, CaptionSpec, Figure, JointName, PoseCategory, PoseDef, PoseFrame, PoseMode, PoseTags, PropSpec } from '@/engine/types';
 
 export interface Placement {
   spec: FigureSpec;
@@ -26,6 +26,8 @@ export interface Meta {
   /** How much of the body is shown; defaults to the full body. */
   frame?: PoseFrame;
   instruction?: string;
+  tags?: PoseTags;
+  anchor?: { object: 'seat' | 'wall' | 'railing'; joint: AnyJointName };
 }
 
 /** Builds a PoseDef and shifts the scene so its bounding box starts at (0,0). */

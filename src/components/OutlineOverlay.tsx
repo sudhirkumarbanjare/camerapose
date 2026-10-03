@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
 import type { SceneTransform } from '@/engine/layout';
 import type { PoseDef, Size } from '@/engine/types';
-import { composeOverlay } from '@/outline/compose';
+import { composeOverlay, type OutlineStyle } from '@/outline/compose';
 
 export const HAND_FONT = 'Kalam_700Bold';
 
@@ -16,6 +16,8 @@ interface Props {
   /** Live coach hint shown as an extra handwritten line under the figure. */
   hint?: string | null;
   showCaptions?: boolean;
+  /** 'lasso' (Huawei-style loose line, default) or 'body' (tight silhouette). */
+  outlineStyle?: OutlineStyle;
 }
 
 const lineColor = (m: number | null | undefined) => (m == null || m < 0.6 ? '#FFFFFF' : m < 0.85 ? '#E6FFEF' : '#7CFFB2');
@@ -25,12 +27,12 @@ const lineColor = (m: number | null | undefined) => (m == null || m < 0.6 ? '#FF
  * drawn over the live camera. Every line is drawn twice, a soft dark stroke under a white one, so
  * it reads on bright and dark backgrounds alike.
  */
-function OutlineOverlayImpl({ pose, transform, size, match, hint, showCaptions = true }: Props) {
+function OutlineOverlayImpl({ pose, transform, size, match, hint, showCaptions = true, outlineStyle = 'lasso' }: Props) {
   const overlay = useMemo(
-    () => composeOverlay(pose, transform, size, { captions: showCaptions }),
+    () => composeOverlay(pose, transform, size, { captions: showCaptions, style: outlineStyle }),
     // the transform changes as the person moves; round it so tiny jitter doesn't re-trace
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pose, Math.round(transform.scale), Math.round(transform.ox), Math.round(transform.oy), size.width, size.height, showCaptions],
+    [pose, Math.round(transform.scale), Math.round(transform.ox), Math.round(transform.oy), size.width, size.height, showCaptions, outlineStyle],
   );
   const color = lineColor(match);
   const strokeW = Math.max(2.4, Math.min(3.6, transform.scale * 0.006));
@@ -53,10 +55,10 @@ function OutlineOverlayImpl({ pose, transform, size, match, hint, showCaptions =
       ))}
       {overlay.captions.map((c, i) => (
         <G key={`c${i}`} rotation={c.rotate} origin={`${c.x}, ${c.y}`}>
-          <SvgText x={c.x} y={c.y} textAnchor={c.anchor} fontFamily={HAND_FONT} fontSize={c.fontSize} fill="#000" fillOpacity={0.35} stroke="#000" strokeOpacity={0.35} strokeWidth={3}>
+          <SvgText x={c.x} y={c.onLine ? c.y + c.fontSize * 0.35 : c.y} textAnchor={c.anchor} fontFamily={HAND_FONT} fontSize={c.fontSize} fill="#000" fillOpacity={0.35} stroke="#000" strokeOpacity={0.35} strokeWidth={3}>
             {c.text}
           </SvgText>
-          <SvgText x={c.x} y={c.y} textAnchor={c.anchor} fontFamily={HAND_FONT} fontSize={c.fontSize} fill="#fff">
+          <SvgText x={c.x} y={c.onLine ? c.y + c.fontSize * 0.35 : c.y} textAnchor={c.anchor} fontFamily={HAND_FONT} fontSize={c.fontSize} fill="#fff">
             {c.text}
           </SvgText>
         </G>

@@ -4,12 +4,13 @@ import { FACE_POSES } from './catalog/face';
 import { FULL_POSES } from './catalog/full';
 import { GROUP_POSES, GROUP_SIZES, groupPose } from './catalog/group';
 import { HALF_POSES } from './catalog/half';
+import { SCENE_POSES } from './catalog/scene';
 
 export { makePose } from './make';
 export { GROUP_SIZES, groupPose };
 
-/** The whole library: Face 20, Half body 25, Full body 35, Couple 12, Group 8. */
-export const POSES: readonly PoseDef[] = [...FACE_POSES, ...HALF_POSES, ...FULL_POSES, ...COUPLE_POSES, ...GROUP_POSES];
+/** The whole library: the 100 core poses plus scene poses (sitting, leaning, graduation, selfie, props). */
+export const POSES: readonly PoseDef[] = [...FACE_POSES, ...HALF_POSES, ...FULL_POSES, ...COUPLE_POSES, ...GROUP_POSES, ...SCENE_POSES];
 
 const BY_ID = new Map(POSES.map((p) => [p.id, p]));
 

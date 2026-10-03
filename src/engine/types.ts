@@ -127,6 +127,18 @@ const BONES_BY_FRAME: Record<PoseFrame, readonly BoneDef[]> = {
 /** The bones that are scored (and drawn) for a framing. */
 export const bonesFor = (frame: PoseFrame): readonly BoneDef[] => BONES_BY_FRAME[frame];
 
+/** Scene tags a pose suits. Labels are lowercase words (e.g. 'bench', 'park', 'graduation', 'bouquet'). */
+export interface PoseTags {
+  /** Places: park, street, beach, campus, cafe, home, office, stairs, garden, city... */
+  setting?: string[];
+  /** Occasions: graduation, wedding, birthday, travel, festival, party, sport... */
+  occasion?: string[];
+  /** Objects that must be in the scene for this pose to make sense (bench, chair, wall, railing, stairs). */
+  requires?: string[];
+  /** Things the person holds (bouquet, diploma, cup, phone, bag, umbrella, balloon). */
+  holds?: string[];
+}
+
 /** Line-art objects drawn with the outline. */
 export type PropKind =
   | 'bouquet'
@@ -218,6 +230,10 @@ export interface PoseDef {
   frame: PoseFrame;
   /** One-line direction shown at the top of the camera ("Hold the bouquet up, lift one leg"). */
   instruction?: string;
+  /** What in the scene this pose suits; drives recommendations. */
+  tags?: PoseTags;
+  /** For poses that use furniture: which point snaps to which object (see reco/placement). */
+  anchor?: { object: 'seat' | 'wall' | 'railing'; joint: AnyJointName };
   figures: Figure[];
   /** Scene bounding box (scene units). Origin is the top-left. */
   width: number;

@@ -107,3 +107,48 @@ describe('mapPath', () => {
     assert.equal(mapPath('M0 0L1 2C1 1 2 2 3 3Z', (x, y) => [x * 2, y + 1], 1), 'M0 1 L2 3 C2 2 4 3 6 4 Z');
   });
 });
+
+describe('captions on the line (Huawei style)', () => {
+  // a straight horizontal stroke and a diagonal one, in view px
+  const flat = 'M0 100L400 100';
+  const diag = 'M0 0L300 300';
+
+  it('cuts a gap the size of the text where the line passes the body part', async () => {
+    const { captionsOnLine, handTextWidth } = await import('../captionsOnLine');
+    const { samplePath, arcLengths } = await import('../pathSample');
+    const r = captionsOnLine([flat], [{ text: 'Lift your leg', anchor: { x: 200, y: 120 }, fontSize: 20 }], 60);
+    assert.equal(r.placed.length, 1);
+    assert.equal(r.strokes.length, 2, 'line split around the caption');
+    const p = r.placed[0];
+    assert.ok(Math.abs(p.x - 200) < 3 && Math.abs(p.y - 100) < 1e-6);
+    assert.ok(Math.abs(p.rotate) < 1e-6, 'written along the flat line');
+    const lens = r.strokes.map((d) => arcLengths(samplePath(d)[0].pts).at(-1)!);
+    const gap = 400 - lens[0] - lens[1];
+    assert.ok(gap >= handTextWidth('Lift your leg', 20), 'gap fits the text');
+  });
+
+  it('turns the text to follow the line and keeps it upright', async () => {
+    const { captionsOnLine } = await import('../captionsOnLine');
+    const r = captionsOnLine([diag], [{ text: 'Raise arm', anchor: { x: 160, y: 140 }, fontSize: 18 }], 60);
+    assert.ok(Math.abs(r.placed[0].rotate - 45) < 2);
+    const back = captionsOnLine(['M300 300L0 0'], [{ text: 'Raise arm', anchor: { x: 160, y: 140 }, fontSize: 18 }], 60);
+    assert.ok(Math.abs(back.placed[0].rotate - 45) < 2, 'upright even when the line runs the other way');
+  });
+
+  it('leaves far-away captions for the fallback placement', async () => {
+    const { captionsOnLine } = await import('../captionsOnLine');
+    const r = captionsOnLine([flat], [{ text: 'Smile', anchor: { x: 200, y: 400 }, fontSize: 20 }], 60);
+    assert.equal(r.placed.length, 0);
+    assert.equal(r.unplaced.length, 1);
+    assert.equal(r.strokes.length, 1);
+  });
+
+  it('opens a closed loop at the caption', async () => {
+    const { captionsOnLine } = await import('../captionsOnLine');
+    const loop = 'M0 0L200 0L200 200L0 200Z';
+    const r = captionsOnLine([loop], [{ text: 'Hi', anchor: { x: 100, y: -10 }, fontSize: 20 }], 40);
+    assert.equal(r.placed.length, 1);
+    assert.equal(r.strokes.length, 1, 'one open stroke remains');
+    assert.ok(!r.strokes[0].endsWith('Z'));
+  });
+});

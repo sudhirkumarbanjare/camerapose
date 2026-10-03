@@ -31,6 +31,18 @@ export interface FigureSpec {
   lShin?: number;
   rThigh?: number;
   rShin?: number;
+  /**
+   * Foreshortening: a limb pointing toward the camera looks shorter (a seated person's thighs, an
+   * arm reaching to the lens). 1 = full length.
+   */
+  lThighLen?: number;
+  rThighLen?: number;
+  lShinLen?: number;
+  rShinLen?: number;
+  lUpperLen?: number;
+  rUpperLen?: number;
+  lForeLen?: number;
+  rForeLen?: number;
 }
 
 const L = {
@@ -107,8 +119,8 @@ export function buildFigure(spec: FigureSpec, origin: Point = { x: 0, y: 0 }, fr
     const fore = spec[`${side}Fore` as const];
     if (upper === undefined || fore === undefined) return;
     const shoulder = side === 'l' ? lShoulder : rShoulder;
-    const elbow = add(shoulder, dir(upper), L.upperArm);
-    const wrist = add(elbow, dir(fore), L.foreArm);
+    const elbow = add(shoulder, dir(upper), L.upperArm * (spec[`${side}UpperLen` as const] ?? 1));
+    const wrist = add(elbow, dir(fore), L.foreArm * (spec[`${side}ForeLen` as const] ?? 1));
     const index = add(wrist, dir(fore + (spec[`${side}Hand` as const] ?? 0)), L.finger);
     const name = side === 'l' ? 'left' : 'right';
     joints[`${name}Elbow` as const] = elbow;
@@ -129,8 +141,8 @@ export function buildFigure(spec: FigureSpec, origin: Point = { x: 0, y: 0 }, fr
       const shin = spec[`${side}Shin` as const];
       if (thigh === undefined || shin === undefined) return;
       const hip = side === 'l' ? lHip : rHip;
-      const knee = add(hip, dir(thigh), L.thigh);
-      const ankle = add(knee, dir(shin), L.shin);
+      const knee = add(hip, dir(thigh), L.thigh * (spec[`${side}ThighLen` as const] ?? 1));
+      const ankle = add(knee, dir(shin), L.shin * (spec[`${side}ShinLen` as const] ?? 1));
       const name = side === 'l' ? 'left' : 'right';
       joints[`${name}Knee` as const] = knee;
       joints[`${name}Ankle` as const] = ankle;

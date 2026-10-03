@@ -134,6 +134,7 @@ export const FULL_POSES: PoseDef[] = [
       difficulty: 2,
       tip: 'Bouquet up high, diploma out, lift one leg and laugh.',
       instruction: 'Bouquet up in one hand, diploma in the other, lean back and lift one leg',
+      tags: { occasion: ['graduation'], setting: ['campus'], holds: ['bouquet', 'diploma'] },
     },
     [
       {
