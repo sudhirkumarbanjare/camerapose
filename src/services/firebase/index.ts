@@ -1,4 +1,5 @@
-import { getApps } from '@react-native-firebase/app';
+import { getApp, getApps } from '@react-native-firebase/app';
+import { initializeAppCheck, ReactNativeFirebaseAppCheckProvider, type AppCheck } from '@react-native-firebase/app-check';
 import { getAuth, onAuthStateChanged, signInAnonymously } from '@react-native-firebase/auth';
 import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { doc, getFirestore, serverTimestamp, setDoc, collection, addDoc } from '@react-native-firebase/firestore';
@@ -20,6 +21,25 @@ export function isFirebaseConfigured(): boolean {
   } catch {
     return false;
   }
+}
+
+// ---------- App Check ----------
+
+let appCheck: AppCheck | null = null;
+
+/**
+ * App Check proves requests come from this genuine app (Play Integrity in release, the debug
+ * provider in development). Firebase AI Logic should be set to ENFORCE App Check in the console so
+ * nobody can spend the project's Gemini quota with the config extracted from the APK.
+ */
+export function getAppCheck(): AppCheck | null {
+  if (!isFirebaseConfigured()) return null;
+  if (!appCheck) {
+    const provider = new ReactNativeFirebaseAppCheckProvider();
+    provider.configure({ android: { provider: __DEV__ ? 'debug' : 'playIntegrity' } });
+    appCheck = initializeAppCheck(getApp(), { provider, isTokenAutoRefreshEnabled: true });
+  }
+  return appCheck;
 }
 
 // ---------- Auth ----------

@@ -23,6 +23,17 @@ npx expo run:ios        # or run:android  (needs Xcode / JDK + Android SDK)
 4. Enable **Anonymous** sign-in, create Firestore + Storage, then `firebase deploy --only firestore:rules,storage,functions`.
 5. Remote Config keys (optional): `premium_pose_ids` (JSON array overriding which poses are premium), `hold_seconds`.
 
+## Turn on AI scene understanding (Gemini free tier)
+
+1. Firebase console → **AI Logic** → enable the **Gemini Developer API** (free tier, no billing needed).
+2. **App Check** → register the Android app with **Play Integrity** (add the app's SHA-256), then set
+   AI Logic to **Enforce**. Without this, anyone with the config from the APK could spend the quota;
+   the app's own daily cap is only a convenience, not protection. For debug builds, add the debug
+   token printed in logcat to App Check's debug tokens.
+3. In AI Logic, set a **per-user rate limit**; if you ever enable billing, add a **budget alert**.
+4. Remote Config (optional): `scene_ai_enabled`, `scene_ai_model` (default `gemini-3.1-flash-lite`),
+   `scene_ai_daily_limit` (default 40).
+
 ## Turn on premium
 
 1. In RevenueCat create an entitlement named `premium`, products, and a current offering. Copy the public SDK keys into `.env` (see `.env.example`).
