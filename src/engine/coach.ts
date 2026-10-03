@@ -31,6 +31,11 @@ export interface EvaluateOptions {
    * left, so "outward" and head-tilt directions flip. Targets must be mirrored to match.
    */
   mirrored?: boolean;
+  /**
+   * The outline is already fitted to where the person stands (camera-first mode), so skip the
+   * "move left / come closer" step and go straight to framing and pose hints.
+   */
+  skipPosition?: boolean;
 }
 
 /** Position tolerances, as fractions of the target figure's apparent height. */
@@ -181,7 +186,7 @@ export function evaluateScene(targets: PlacedFigure[], detected: Skeleton[], opt
   }
 
   let positionIssue: string | undefined;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n && !opts.skipPosition; i++) {
     const hint = positionHint(targets[i], people[i]!);
     slots[i].positioned = hint === null;
     if (hint) {
@@ -189,6 +194,7 @@ export function evaluateScene(targets: PlacedFigure[], detected: Skeleton[], opt
       positionIssue ??= `${ordinalPrefix(ordinal(i), n)}${hint}`;
     }
   }
+  if (opts.skipPosition) slots.forEach((sl) => (sl.positioned = true));
   if (positionIssue) {
     return { phase: 'position', headline: positionIssue, score: null, slots, extra };
   }

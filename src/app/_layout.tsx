@@ -56,7 +56,6 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
         <Stack.Screen name="paywall" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="camera" options={{ animation: 'fade', gestureEnabled: false }} />
       </Stack>
     </>
   );

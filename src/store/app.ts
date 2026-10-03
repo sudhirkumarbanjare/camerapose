@@ -9,6 +9,9 @@ interface AppState {
   setUid: (uid: string | null) => void;
   setPremium: (p: boolean) => void;
   setFlags: (f: RemoteFlags) => void;
+  /** Pose ids saved to the "Mine" tab (kept in memory for now). */
+  favorites: string[];
+  toggleFavorite: (id: string) => void;
 }
 
 /** Set EXPO_PUBLIC_FORCE_PREMIUM=1 to test premium poses without a RevenueCat setup. */
@@ -21,6 +24,8 @@ export const useApp = create<AppState>((set) => ({
   setUid: (uid) => set({ uid }),
   setPremium: (p) => set({ isPremium: p || FORCE_PREMIUM }),
   setFlags: (flags) => set({ flags }),
+  favorites: [],
+  toggleFavorite: (id) => set((st) => ({ favorites: st.favorites.includes(id) ? st.favorites.filter((f) => f !== id) : [id, ...st.favorites] })),
 }));
 
 /** Remote Config can override which poses are premium without an app release. */

@@ -191,7 +191,13 @@ interface Grid {
   w: number;
   h: number;
   v: Uint8Array;
+  /** Softened copy of `v` (0..1). When present the contour follows its 0.5 level with sub-cell precision. */
+  f?: Float32Array;
 }
+
+/** Cells of blur: rounds every join (neck, armpit, crotch) into one flowing curve. */
+const BLUR_RADIUS = 3;
+const MARGIN = 2 + BLUR_RADIUS * 3;
 
 function makeGrid(shapes: Shape[], cell: number, maxY: number | null): Grid {
   let x0 = Infinity;
@@ -206,10 +212,10 @@ function makeGrid(shapes: Shape[], cell: number, maxY: number | null): Grid {
     y1 = Math.max(y1, b.y1);
   }
   if (maxY !== null) y1 = Math.min(y1, maxY + 3 * cell);
-  x0 -= 2 * cell;
-  y0 -= 2 * cell;
-  x1 += 2 * cell;
-  y1 += 2 * cell;
+  x0 -= MARGIN * cell;
+  y0 -= MARGIN * cell;
+  x1 += MARGIN * cell;
+  y1 += MARGIN * cell;
   const w = Math.ceil((x1 - x0) / cell) + 1;
   const h = Math.ceil((y1 - y0) / cell) + 1;
   return { x0, y0, cell, w, h, v: new Uint8Array(w * h) };
@@ -233,6 +239,40 @@ function paint(g: Grid, shapes: Shape[]) {
 }
 
 const at = (g: Grid, i: number, j: number) => (i < 0 || j < 0 || i >= g.w || j >= g.h ? 0 : g.v[j * g.w + i]);
+const fieldAt = (g: Grid, i: number, j: number) => (i < 0 || j < 0 || i >= g.w || j >= g.h ? 0 : g.f ? g.f[j * g.w + i] : g.v[j * g.w + i]);
+const inAt = (g: Grid, i: number, j: number) => (g.f ? (fieldAt(g, i, j) >= 0.5 ? 1 : 0) : at(g, i, j));
+
+/** Two passes of a separable box blur (close to a Gaussian) over the mask. */
+function soften(g: Grid, r = BLUR_RADIUS): Grid {
+  let a = Float32Array.from(g.v);
+  const b = new Float32Array(a.length);
+  const win = 2 * r + 1;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let j = 0; j < g.h; j++) {
+      let acc = 0;
+      for (let i = -r; i <= r; i++) acc += i >= 0 && i < g.w ? a[j * g.w + i] : 0;
+      for (let i = 0; i < g.w; i++) {
+        b[j * g.w + i] = acc / win;
+        const out = i - r;
+        const inn = i + r + 1;
+        if (out >= 0) acc -= a[j * g.w + out];
+        if (inn < g.w) acc += a[j * g.w + inn];
+      }
+    }
+    for (let i = 0; i < g.w; i++) {
+      let acc = 0;
+      for (let j = -r; j <= r; j++) acc += j >= 0 && j < g.h ? b[j * g.w + i] : 0;
+      for (let j = 0; j < g.h; j++) {
+        a[j * g.w + i] = acc / win;
+        const out = j - r;
+        const inn = j + r + 1;
+        if (out >= 0) acc -= b[out * g.w + i];
+        if (inn < g.h) acc += b[inn * g.w + i];
+      }
+    }
+  }
+  return { ...g, f: a };
+}
 
 /** Marching squares -> closed loops of points (scene units). */
 function trace(g: Grid): Point[][] {
@@ -242,10 +282,10 @@ function trace(g: Grid): Point[][] {
   const link = (ax: number, ay: number, bx: number, by: number) => next.set(K(ax, ay), K(bx, by));
   for (let j = -1; j < g.h; j++) {
     for (let i = -1; i < g.w; i++) {
-      const tl = at(g, i, j);
-      const tr = at(g, i + 1, j);
-      const br = at(g, i + 1, j + 1);
-      const bl = at(g, i, j + 1);
+      const tl = inAt(g, i, j);
+      const tr = inAt(g, i + 1, j);
+      const br = inAt(g, i + 1, j + 1);
+      const bl = inAt(g, i, j + 1);
       const c = (tl << 3) | (tr << 2) | (br << 1) | bl;
       if (c === 0 || c === 15) continue;
       // edge midpoints (doubled coords, +2 offset keeps them non-negative)
@@ -273,10 +313,23 @@ function trace(g: Grid): Point[][] {
     }
   }
   const stride = 2 * g.w + 4;
+  // Where the contour crosses an edge: the midpoint for a hard mask, or the exact 0.5 level of
+  // the softened field (linear interpolation), which removes the stair-steps entirely.
+  const lerp = (v0: number, v1: number) => (v1 === v0 ? 0.5 : Math.max(0, Math.min(1, (0.5 - v0) / (v1 - v0))));
   const toPoint = (k: number): Point => {
     const x2 = k % stride;
     const y2 = Math.floor(k / stride);
-    return { x: g.x0 + ((x2 - 2) / 2) * g.cell, y: g.y0 + ((y2 - 2) / 2) * g.cell };
+    if (!g.f) return { x: g.x0 + ((x2 - 2) / 2) * g.cell, y: g.y0 + ((y2 - 2) / 2) * g.cell };
+    if (x2 % 2 === 1) {
+      // horizontal edge between (i, j) and (i + 1, j)
+      const i = (x2 - 3) / 2;
+      const j = (y2 - 2) / 2;
+      return { x: g.x0 + (i + lerp(fieldAt(g, i, j), fieldAt(g, i + 1, j))) * g.cell, y: g.y0 + j * g.cell };
+    }
+    // vertical edge between (i, j) and (i, j + 1)
+    const i = (x2 - 2) / 2;
+    const j = (y2 - 3) / 2;
+    return { x: g.x0 + i * g.cell, y: g.y0 + (j + lerp(fieldAt(g, i, j), fieldAt(g, i, j + 1))) * g.cell };
   };
   const loops: Point[][] = [];
   const seen = new Set<number>();
@@ -344,7 +397,7 @@ function simplifyLoop(loop: Point[], eps: number): Point[] {
  * Laplacian smoothing: removes the marching-squares stair-steps before simplification. Open runs
  * keep their end points so cropped edges stay where they are.
  */
-function relax(pts: Point[], closed: boolean, iterations = 3): Point[] {
+function relax(pts: Point[], closed: boolean, iterations = 4): Point[] {
   let cur = pts;
   for (let it = 0; it < iterations; it++) {
     const n = cur.length;
@@ -400,6 +453,11 @@ function runs(loop: Point[], keep: (p: Point) => boolean): { pts: Point[]; close
   return out.filter((r) => r.pts.length >= 4);
 }
 
+/** Length of a polyline in scene units. */
+const lengthOf = (pts: Point[]) => pts.reduce((acc, p, i) => (i ? acc + len(sub(p, pts[i - 1])) : 0), 0);
+/** Open fragments shorter than this (scene units) are crop/overlap leftovers, not body lines. */
+const MIN_RUN = 0.06;
+
 const cache = new Map<string, Outline>();
 
 /**
@@ -414,12 +472,13 @@ export function figureOutline(f: Figure, frame: PoseFrame, opts: OutlineOptions 
   const crop = cropLine(f.joints, frame);
   const g = makeGrid(all, cell, crop);
   paint(g, all);
-  const eps = cell * 1.1;
+  const eps = cell * 0.9;
   const belowCrop = (p: Point) => crop === null || p.y < crop - cell;
 
   const body: string[] = [];
-  for (const loop of trace(g)) {
+  for (const loop of trace(soften(g))) {
     for (const r of runs(loop, belowCrop)) {
+      if (!r.closed && lengthOf(r.pts) < MIN_RUN) continue;
       const sm = relax(r.pts, r.closed);
       const pts = r.closed ? simplifyLoop(sm, eps) : dp(sm, eps);
       if (pts.length >= 3) body.push(smoothPath(pts, r.closed));
@@ -456,8 +515,9 @@ export function figureOutline(f: Figure, frame: PoseFrame, opts: OutlineOptions 
       // a one-cell margin keeps the line from touching the silhouette edge
       return at(restGrid, i, jj) === 1 && at(restGrid, i + 1, jj) === 1 && at(restGrid, i - 1, jj) === 1 && at(restGrid, i, jj + 1) === 1 && at(restGrid, i, jj - 1) === 1 && (crop === null || p.y < crop - 0.035);
     };
-    for (const loop of trace(limbGrid)) {
+    for (const loop of trace(soften(limbGrid))) {
       for (const r of runs(loop, overRest)) {
+        if (lengthOf(r.pts) < MIN_RUN) continue;
         const pts = dp(relax(r.pts, false), eps);
         if (pts.length >= 3) inner.push(smoothPath(pts, false));
       }
