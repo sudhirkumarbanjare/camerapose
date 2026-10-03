@@ -48,3 +48,25 @@ export function blendTransform(prev: SceneTransform | null, next: SceneTransform
   const mix = (a: number, b: number) => a + (b - a) * alpha;
   return { scale: mix(prev.scale, next.scale), ox: mix(prev.ox, next.ox), oy: mix(prev.oy, next.oy) };
 }
+
+/** Natural seat width (scene units) of the furniture props, used to size the outline from a box. */
+const SEAT_WIDTH: Record<string, number> = { bench: 1.2, chair: 0.34 };
+
+/**
+ * Background-aware placement: for a furniture pose (anchor = seat) put the anchored joint on the
+ * detected seat — hips centred on the bench/chair, just below its top edge — and size the person
+ * from the furniture. `objects` boxes are normalised to the view. Null when nothing fits.
+ */
+export function fitToObject(pose: PoseDef, view: Size, objects: { label: string; box?: { x: number; y: number; w: number; h: number } }[]): SceneTransform | null {
+  const anchor = pose.anchor;
+  if (!anchor || anchor.object !== 'seat') return null;
+  const seat = objects.find((o) => o.box && SEAT_WIDTH[o.label]);
+  if (!seat?.box) return null;
+  const joint = pose.figures[0]?.joints[anchor.joint];
+  if (!joint) return null;
+  const def = sceneTransform(pose, view).scale;
+  const scale = Math.max(def * 0.35, Math.min(def * 1.8, (seat.box.w * view.width) / SEAT_WIDTH[seat.label]));
+  const tx = (seat.box.x + seat.box.w / 2) * view.width;
+  const ty = (seat.box.y + seat.box.h * 0.2) * view.height;
+  return { scale, ox: tx - joint.x * scale, oy: ty - joint.y * scale };
+}

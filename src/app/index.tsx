@@ -24,7 +24,7 @@ import { mirrorPose } from '@/engine/mirror';
 import { PoseSmoother } from '@/engine/smooth';
 import type { PoseDef, PoseFrame, Size, Skeleton } from '@/engine/types';
 import { getPose, POSES } from '@/poses/library';
-import { blendTransform, fitToPeople } from '@/reco/placement';
+import { blendTransform, fitToObject, fitToPeople } from '@/reco/placement';
 import { BATCH, batchOf, rankPoses } from '@/reco/recommend';
 import { liveScene } from '@/scene/live';
 import type { SceneContext } from '@/scene/types';
@@ -153,6 +153,8 @@ function Live() {
     return { people: Number(n), framing: framing === 'null' ? null : (framing as PoseFrame), camera: camera as 'front' | 'back', ...t };
   }, [sceneKey]);
   const ranked = useMemo(() => rankPoses(POSES, scene), [scene]);
+  const objectsRef = useRef(tags.objects ?? []);
+  objectsRef.current = tags.objects ?? [];
   const saved = useMemo(() => favorites.map((id) => getPose(id)).filter((p): p is PoseDef => !!p), [favorites]);
 
   // The on-screen recommendation: one pose at a time from the current batch; swipe to move,
@@ -236,7 +238,9 @@ function Live() {
       let progress = 0;
       if (p) {
         const fit = fitToPeople(p, v, smoothed);
-        transformRef.current = fit.fitted ? blendTransform(transformRef.current, fit.transform, 0.25) : null;
+        // the person if someone is there; else the furniture the pose uses (bench, chair); else default
+        const target = fit.fitted ? fit.transform : fitToObject(p, v, objectsRef.current);
+        transformRef.current = target ? blendTransform(transformRef.current, target, 0.25) : null;
         const targets = placePose(p, v, {}, transformRef.current ?? defaultTransform(p, v));
         g = evaluateScene(targets, smoothed, { mirrored: mirroredRef.current, skipPosition: true });
         scoreRef.current = g.score;

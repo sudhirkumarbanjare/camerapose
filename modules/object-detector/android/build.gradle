@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.objectdetector'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.objectdetector"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // Same MediaPipe Tasks version the pose detector already ships, so there is one copy.
+  implementation 'com.google.mediapipe:tasks-vision:0.10.26'
+}

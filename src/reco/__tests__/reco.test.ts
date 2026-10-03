@@ -145,3 +145,17 @@ describe('situation and background drive the picks', () => {
     assert.ok(r.some((id) => id.startsWith('chair')), r.join());
   });
 });
+
+describe('background-aware placement', () => {
+  it('puts the hips of a bench pose on the detected bench', async () => {
+    const { fitToObject } = await import('../placement');
+    const view = { width: 400, height: 800 };
+    const pose = getPose('bench-sit-relaxed')!;
+    const t = fitToObject(pose, view, [{ label: 'bench', box: { x: 0.2, y: 0.6, w: 0.6, h: 0.15 } }])!;
+    assert.ok(t);
+    const [fig] = placePose(pose, view, {}, t);
+    assert.ok(Math.abs(fig.joints.midHip!.x - 200) < 1, 'centred on the bench');
+    assert.ok(Math.abs(fig.joints.midHip!.y - (0.6 + 0.15 * 0.2) * 800) < 1, 'on the seat');
+    assert.equal(fitToObject(getPose('relaxed')!, view, [{ label: 'bench', box: { x: 0, y: 0, w: 1, h: 1 } }]), null);
+  });
+});
