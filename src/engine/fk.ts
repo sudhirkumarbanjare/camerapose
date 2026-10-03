@@ -176,5 +176,5 @@ export function translateFigure(f: Figure, dx: number, dy: number, scale = 1, pi
   for (const [k, j] of Object.entries(f.joints)) {
     if (j) joints[k as keyof Figure['joints']] = t(j);
   }
-  return { joints, head: { c: t(f.head.c), r: f.head.r * scale }, occluded: f.occluded, points: f.points };
+  return { ...f, joints, head: { c: t(f.head.c), r: f.head.r * scale } };
 }

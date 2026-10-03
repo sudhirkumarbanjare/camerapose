@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Kalam_400Regular, Kalam_700Bold, useFonts } from '@expo-google-fonts/kalam';
 import { colors } from '@/theme';
 import { useApp } from '@/store/app';
 import { ensureSignedIn, loadRemoteFlags, onUidChange, upsertUserProfile } from '@/services/firebase';
@@ -21,6 +22,8 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 export default function RootLayout() {
+  // Handwritten tips use Kalam (Latin + Devanagari). Screens still render while it loads.
+  useFonts({ Kalam_400Regular, Kalam_700Bold });
   useEffect(() => {
     let cancelled = false;
     let stopCustomerInfo = () => {};

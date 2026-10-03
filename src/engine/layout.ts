@@ -25,15 +25,26 @@ export const FRAME_LAYOUT: Record<PoseFrame, Required<LayoutOptions>> = {
  */
 export const REF_HEIGHT: Record<PoseFrame, number> = { full: 1, upper: 0.5, face: 0.25 };
 
-/** Scales and positions a pose scene into view pixels. */
-export function placePose(pose: PoseDef, view: Size, opts: LayoutOptions = {}): PlacedFigure[] {
+/** Scene units -> view pixels: x' = ox + x * scale, y' = oy + y * scale. */
+export interface SceneTransform {
+  scale: number;
+  ox: number;
+  oy: number;
+}
+
+/** Default placement of a pose scene in the view (centred, feet near the bottom). */
+export function sceneTransform(pose: PoseDef, view: Size, opts: LayoutOptions = {}): SceneTransform {
   const base = FRAME_LAYOUT[pose.frame];
   const heightFrac = opts.heightFrac ?? base.heightFrac;
   const bottomFrac = opts.bottomFrac ?? base.bottomFrac;
   const widthFrac = opts.widthFrac ?? base.widthFrac;
   const scale = Math.min((view.height * heightFrac) / Math.max(pose.height, REF_HEIGHT[pose.frame]), (view.width * widthFrac) / pose.width);
-  const ox = (view.width - pose.width * scale) / 2;
-  const oy = view.height * bottomFrac - pose.height * scale;
+  return { scale, ox: (view.width - pose.width * scale) / 2, oy: view.height * bottomFrac - pose.height * scale };
+}
+
+/** Scales and positions a pose scene into view pixels. */
+export function placePose(pose: PoseDef, view: Size, opts: LayoutOptions = {}, transform?: SceneTransform): PlacedFigure[] {
+  const { scale, ox, oy } = transform ?? sceneTransform(pose, view, opts);
 
   return pose.figures.map((fig) => {
     const joints: PlacedFigure['joints'] = {};

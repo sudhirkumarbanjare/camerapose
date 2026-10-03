@@ -125,6 +125,32 @@ export const FULL_POSES: PoseDef[] = [
   solo('t-rex', 'T-Rex Arms', 'Elbows tucked, little arms out front. Roar.', 'funny', 1, {
     spec: { lUpper: 5, lFore: 95, rUpper: -5, rFore: -95, lThigh: 8, lShin: 6, rThigh: -8, rShin: -6 },
   }),
+  makePose(
+    {
+      id: 'grad-bouquet-kick',
+      name: 'Graduation Kick',
+      mode: 'solo',
+      category: 'travel',
+      difficulty: 2,
+      tip: 'Bouquet up high, diploma out, lift one leg and laugh.',
+      instruction: 'Bouquet up in one hand, diploma in the other, lean back and lift one leg',
+    },
+    [
+      {
+        spec: { lean: -5, head: -8, lUpper: 150, lFore: 165, rUpper: -62, rFore: -40, lThigh: 78, lShin: 88, rThigh: -4, rShin: -3 },
+        props: [
+          { kind: 'bouquet', at: 'leftWrist' },
+          { kind: 'diploma', at: 'rightWrist', rot: 90 },
+          { kind: 'gradCap', at: 'headTop', size: 0.85 },
+        ],
+        captions: [
+          { text: 'Open your arm', at: 'leftElbow', side: 'right' },
+          { text: 'Lift your leg', at: 'leftKnee', side: 'above' },
+          { text: 'Big smile', at: 'headCenter', side: 'left' },
+        ],
+      },
+    ],
+  ),
   solo('shrug', 'Big Shrug', 'Palms up, shrug: “who knows?”', 'funny', 1, {
     spec: { head: 8, lUpper: 55, lFore: 120, rUpper: -55, rFore: -120, ...LEGS },
   }),

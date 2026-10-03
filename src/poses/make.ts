@@ -1,5 +1,5 @@
 import { buildFigure, figureExtent, translateFigure, type FigureSpec } from '@/engine/fk';
-import type { BoneName, Figure, JointName, PoseCategory, PoseDef, PoseFrame, PoseMode } from '@/engine/types';
+import type { BoneName, CaptionSpec, Figure, JointName, PoseCategory, PoseDef, PoseFrame, PoseMode, PropSpec } from '@/engine/types';
 
 export interface Placement {
   spec: FigureSpec;
@@ -11,6 +11,8 @@ export interface Placement {
   occluded?: BoneName[];
   /** Joints judged by position (hand to face); see Figure.points. */
   points?: JointName[];
+  props?: PropSpec[];
+  captions?: CaptionSpec[];
 }
 
 export interface Meta {
@@ -23,13 +25,14 @@ export interface Meta {
   tip: string;
   /** How much of the body is shown; defaults to the full body. */
   frame?: PoseFrame;
+  instruction?: string;
 }
 
 /** Builds a PoseDef and shifts the scene so its bounding box starts at (0,0). */
 export function makePose(meta: Meta, placements: Placement[]): PoseDef {
   const frame = meta.frame ?? 'full';
   const raw: Figure[] = placements.map((p) => {
-    const f = { ...buildFigure(p.spec, { x: p.x ?? 0, y: p.y ?? 0 }, frame), occluded: p.occluded, points: p.points };
+    const f = { ...buildFigure(p.spec, { x: p.x ?? 0, y: p.y ?? 0 }, frame), occluded: p.occluded, points: p.points, props: p.props, captions: p.captions };
     return p.scale && p.scale !== 1 ? translateFigure(f, 0, 0, p.scale, { x: p.x ?? 0, y: (p.y ?? 0) + 0.52 }) : f;
   });
   // A close-up portrait is cropped below the shoulders, so elbows must not set the scene size.

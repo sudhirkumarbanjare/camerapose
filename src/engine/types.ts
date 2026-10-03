@@ -127,6 +127,50 @@ const BONES_BY_FRAME: Record<PoseFrame, readonly BoneDef[]> = {
 /** The bones that are scored (and drawn) for a framing. */
 export const bonesFor = (frame: PoseFrame): readonly BoneDef[] => BONES_BY_FRAME[frame];
 
+/** Line-art objects drawn with the outline. */
+export type PropKind =
+  | 'bouquet'
+  | 'diploma'
+  | 'gradCap'
+  | 'chair'
+  | 'chairSide'
+  | 'bench'
+  | 'bag'
+  | 'cup'
+  | 'phone'
+  | 'sunglasses'
+  | 'flower'
+  | 'umbrella'
+  | 'balloon';
+
+/** Where a prop or caption hangs: a joint, or a derived point on the head / hips. */
+export type Attach = AnyJointName | 'headTop' | 'eyes' | 'headCenter';
+
+export interface PropSpec {
+  kind: PropKind;
+  at: Attach;
+  /** Size multiplier (1 = natural size for an adult). */
+  size?: number;
+  /**
+   * How it turns: along the forearm (things held out), with the head (cap, glasses) or always
+   * upright (cup, bag, furniture). Default depends on the prop.
+   */
+  align?: 'forearm' | 'head' | 'upright';
+  /** Extra rotation in degrees. */
+  rot?: number;
+  /** Offset in scene units (screen axes). */
+  dx?: number;
+  dy?: number;
+}
+
+/** A handwritten tip drawn next to a body part. */
+export interface CaptionSpec {
+  text: string;
+  at: Attach;
+  /** Which side of the point the text sits (screen terms). */
+  side: 'left' | 'right' | 'above' | 'below';
+}
+
 /** One body in a target pose, in scene units (a standing adult is ~1 tall). */
 export interface Figure {
   joints: Skeleton;
@@ -142,6 +186,8 @@ export interface Figure {
    * face, shoulder width for upper).
    */
   points?: JointName[];
+  props?: PropSpec[];
+  captions?: CaptionSpec[];
 }
 
 export type PoseCategory =
@@ -170,6 +216,8 @@ export interface PoseDef {
   tip: string;
   /** Framing: how much of the body must be in view. Defaults to 'full'. */
   frame: PoseFrame;
+  /** One-line direction shown at the top of the camera ("Hold the bouquet up, lift one leg"). */
+  instruction?: string;
   figures: Figure[];
   /** Scene bounding box (scene units). Origin is the top-left. */
   width: number;

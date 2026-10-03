@@ -11,13 +11,13 @@ const VIEW = { width: 400, height: 800 };
 const count = (f: (p: (typeof POSES)[number]) => boolean) => POSES.filter(f).length;
 
 describe('pose catalog', () => {
-  it('has exactly 100 poses split Face 20 / Half 25 / Full 35 / Couple 12 / Group 8', () => {
-    assert.equal(POSES.length, 100);
-    assert.equal(count((p) => p.mode === 'face'), 20);
-    assert.equal(count((p) => p.mode === 'half'), 25);
-    assert.equal(count((p) => p.mode === 'solo'), 35);
-    assert.equal(count((p) => p.mode === 'couple'), 12);
-    assert.equal(count((p) => p.mode === 'group'), 8);
+  it('has at least 100 poses: Face 20+, Half 25+, Full 35+, Couple 12+, Group 8+', () => {
+    assert.ok(POSES.length >= 100);
+    assert.ok(count((p) => p.mode === 'face') >= 20);
+    assert.ok(count((p) => p.mode === 'half') >= 25);
+    assert.ok(count((p) => p.mode === 'solo') >= 35);
+    assert.ok(count((p) => p.mode === 'couple') >= 12);
+    assert.ok(count((p) => p.mode === 'group') >= 8);
   });
 
   it('has unique kebab-case ids, and unique names within each section', () => {

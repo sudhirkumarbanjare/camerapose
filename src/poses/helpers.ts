@@ -115,5 +115,7 @@ export function mirrorPlacement(p: Placement): Placement {
     x: p.x === undefined ? undefined : -p.x,
     occluded: p.occluded?.map((b) => swapSideName(b as string) as BoneName),
     points: p.points?.map((j) => swapSideName(j as string) as JointName),
+    props: p.props?.map((q) => ({ ...q, at: swapSideName(q.at), dx: q.dx === undefined ? undefined : -q.dx, rot: q.rot === undefined ? undefined : -q.rot })),
+    captions: p.captions?.map((c) => ({ ...c, at: swapSideName(c.at), side: c.side === 'left' ? 'right' : c.side === 'right' ? 'left' : c.side })),
   };
 }

@@ -17,6 +17,9 @@ export function mirrorFigure(f: Figure, width: number): Figure {
     head: { c: { x: width - f.head.c.x, y: f.head.c.y }, r: f.head.r },
     occluded: f.occluded,
     points: f.points,
+    // Props follow their joints; only screen-side offsets and caption sides flip.
+    props: f.props?.map((p) => ({ ...p, dx: p.dx === undefined ? undefined : -p.dx, rot: p.rot === undefined ? undefined : -p.rot })),
+    captions: f.captions?.map((c) => ({ ...c, side: c.side === 'left' ? 'right' : c.side === 'right' ? 'left' : c.side })),
   };
 }
 
