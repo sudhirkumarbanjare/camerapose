@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml:2:13-83
+INJECTED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml:2:13-83
+	package
+		INJECTED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml
+	xmlns:android
+		ADDED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml:2:23-81
+uses-sdk
+INJECTED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml reason: use-sdk injection requested
+INJECTED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml
+INJECTED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml
+	android:targetSdkVersion
+		INJECTED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml
+	android:minSdkVersion
+		INJECTED from /Users/sudhir/Documents/Projects/8CameraPose/modules/object-detector/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14020059652694772596.xml

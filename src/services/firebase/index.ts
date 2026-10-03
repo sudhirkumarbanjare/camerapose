@@ -79,14 +79,21 @@ const RC_DEFAULTS = {
   premium_pose_ids: '',
   /** Seconds the pose must be held before auto-capture fires. */
   hold_seconds: 1.2,
+  /** Cloud scene understanding (Gemini free tier) on/off, model id and per-day call cap. */
+  scene_ai_enabled: true,
+  scene_ai_model: 'gemini-3.1-flash-lite',
+  scene_ai_daily_limit: 40,
 };
 
 export interface RemoteFlags {
   premiumPoseIds: string[] | null;
   holdSeconds: number;
+  sceneAiEnabled: boolean;
+  sceneAiModel: string;
+  sceneAiDailyLimit: number;
 }
 
-export const DEFAULT_FLAGS: RemoteFlags = { premiumPoseIds: null, holdSeconds: 1.2 };
+export const DEFAULT_FLAGS: RemoteFlags = { premiumPoseIds: null, holdSeconds: 1.2, sceneAiEnabled: true, sceneAiModel: 'gemini-3.1-flash-lite', sceneAiDailyLimit: 40 };
 
 export async function loadRemoteFlags(): Promise<RemoteFlags> {
   if (!isFirebaseConfigured()) return DEFAULT_FLAGS;
@@ -103,7 +110,10 @@ export async function loadRemoteFlags(): Promise<RemoteFlags> {
     }
     return {
       premiumPoseIds,
-      holdSeconds: getValue(rc, 'hold_seconds').asNumber() || DEFAULT_FLAGS.holdSeconds,
+      holdSeconds: Math.max(0.5, Math.min(5, getValue(rc, 'hold_seconds').asNumber() || DEFAULT_FLAGS.holdSeconds)),
+      sceneAiEnabled: getValue(rc, 'scene_ai_enabled').asBoolean(),
+      sceneAiModel: getValue(rc, 'scene_ai_model').asString() || DEFAULT_FLAGS.sceneAiModel,
+      sceneAiDailyLimit: Math.max(0, Math.min(500, getValue(rc, 'scene_ai_daily_limit').asNumber() || DEFAULT_FLAGS.sceneAiDailyLimit)),
     };
   } catch (e) {
     console.warn('[firebase] remote config failed, using defaults', e);

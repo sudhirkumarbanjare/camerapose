@@ -28,7 +28,10 @@ import { blendTransform, fitToObject, fitToPeople } from '@/reco/placement';
 import { BATCH, batchOf, rankPoses } from '@/reco/recommend';
 import { liveScene } from '@/scene/live';
 import type { SceneContext } from '@/scene/types';
+import { mergeTags } from '@/scene/labels';
 import { useSceneLabels } from '@/scene/useSceneLabels';
+import { useAiScene } from '@/scene/useAiScene';
+import { isFirebaseConfigured } from '@/services/firebase';
 import { recordCapture, track, uploadCapture } from '@/services/firebase';
 import { extractPeople, toSkeleton } from '@/services/pose/landmarks';
 import { useApp } from '@/store/app';
@@ -152,9 +155,23 @@ function Live() {
     const t = JSON.parse(tagJson || '{}') as Partial<SceneContext>;
     return { people: Number(n), framing: framing === 'null' ? null : (framing as PoseFrame), camera: camera as 'front' | 'back', ...t };
   }, [sceneKey]);
-  const ranked = useMemo(() => rankPoses(POSES, scene), [scene]);
+  // Cloud boost (Gemini free tier): situation, walls/railings/stairs with boxes, tailored picks.
+  const flags = useApp((s) => s.flags);
+  const ai = useAiScene(cameraRef, {
+    enabled: appActive && flags.sceneAiEnabled && isFirebaseConfigured(),
+    sceneKey,
+    people: scene.people,
+    facing,
+    model: flags.sceneAiModel,
+    dailyLimit: flags.sceneAiDailyLimit,
+  });
+  const fullScene: SceneContext = useMemo(
+    () => (ai ? { ...scene, ...mergeTags(scene, ai), aiPicks: ai.aiPicks, aiInstructions: ai.aiInstructions } : scene),
+    [scene, ai],
+  );
+  const ranked = useMemo(() => rankPoses(POSES, fullScene), [fullScene]);
   const objectsRef = useRef(tags.objects ?? []);
-  objectsRef.current = tags.objects ?? [];
+  objectsRef.current = fullScene.objects ?? [];
   const saved = useMemo(() => favorites.map((id) => getPose(id)).filter((p): p is PoseDef => !!p), [favorites]);
 
   // The on-screen recommendation: one pose at a time from the current batch; swipe to move,
@@ -295,10 +312,11 @@ function Live() {
 
   const onLayout = (e: LayoutChangeEvent) => setView({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height });
 
-  const seeing = `${scene.people === 0 ? 'nobody yet' : scene.people === 1 ? '1 person' : `${scene.people} people`}${scene.framing ? ` · ${FRAMING_LABEL[scene.framing]}` : ''}${scene.camera === 'front' ? ' · selfie' : ''}${[...(scene.objects ?? []).map((o) => o.label), ...(scene.setting ?? []), ...(scene.occasion ?? [])].slice(0, 3).map((x) => ` · ${x}`).join('')}`;
+  const seen = [...(fullScene.objects ?? []).map((o) => o.label), ...(fullScene.occasion ?? []), ...(fullScene.holds ?? []), ...(fullScene.setting ?? [])];
+  const seeing = `${scene.people === 0 ? 'nobody yet' : scene.people === 1 ? '1 person' : `${scene.people} people`}${scene.framing ? ` · ${FRAMING_LABEL[scene.framing]}` : ''}${scene.camera === 'front' ? ' · selfie' : ''}${[...new Set(seen)].slice(0, 3).map((x) => ` · ${x}`).join('')}${ai ? ' · ✦AI' : ''}`;
   const hint =
     guidance && guidance.phase !== 'ready' && guidance.phase !== 'no-people' ? guidance.headline : guidance?.phase === 'ready' ? 'Hold it…' : people.length ? null : 'Step into the outline';
-  const instruction = pose?.instruction ?? pose?.tip;
+  const instruction = (basePose && fullScene.aiInstructions?.[basePose.id]) ?? pose?.instruction ?? pose?.tip;
   const isSaved = !!basePose && favorites.includes(basePose.id);
   const position = list.length ? `${(((index % list.length) + list.length) % list.length) + 1}/${list.length}` : '';
 
