@@ -1,5 +1,5 @@
 import { getApp, getApps } from '@react-native-firebase/app';
-import { initializeAppCheck, ReactNativeFirebaseAppCheckProvider, type AppCheck } from '@react-native-firebase/app-check';
+import type { AppCheck } from '@react-native-firebase/app-check';
 import { getAuth, onAuthStateChanged, signInAnonymously } from '@react-native-firebase/auth';
 import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { doc, getFirestore, serverTimestamp, setDoc, collection, addDoc } from '@react-native-firebase/firestore';
@@ -35,6 +35,9 @@ let appCheck: AppCheck | null = null;
 export function getAppCheck(): AppCheck | null {
   if (!isFirebaseConfigured()) return null;
   if (!appCheck) {
+    // Lazy: the native module is only linked when Firebase is configured (react-native.config.js).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { initializeAppCheck, ReactNativeFirebaseAppCheckProvider } = require('@react-native-firebase/app-check') as typeof import('@react-native-firebase/app-check');
     const provider = new ReactNativeFirebaseAppCheckProvider();
     provider.configure({ android: { provider: __DEV__ ? 'debug' : 'playIntegrity' } });
     appCheck = initializeAppCheck(getApp(), { provider, isTokenAutoRefreshEnabled: true });
